@@ -1,5 +1,5 @@
-local openai = require('flyboy.openai')
-local config = require('flyboy.config')
+local openai = require("carrier.openai")
+local config = require("carrier.config")
 
 local function open_chat_with_text(text)
     -- create a new empty buffer
@@ -13,7 +13,7 @@ local function open_chat_with_text(text)
 end
 
 local function open_chat_template(template)
-    if not (template) then
+    if not template then
         template = "blank"
     end
     local final_text = config.options.templates[template].template_fn(config.options.sources)
@@ -52,15 +52,15 @@ local function parseMarkdown()
     for _, line in ipairs(lines) do
         if line:match("^#%s+(.*)$") then
             local role = line:match("^#%s+(.*)$")
-            if (currentEntry) then
+            if currentEntry then
                 table.insert(messages, currentEntry)
             end
             currentEntry = {
                 role = string.lower(role),
-                content = ""
+                content = "",
             }
         elseif currentEntry then
-            if (line ~= "") then
+            if line ~= "" then
                 if currentEntry.content == "" then
                     currentEntry.content = line
                 else
@@ -88,21 +88,21 @@ local function send_message()
     local currentLineContents = ""
 
     local on_delta = function(response)
-        if response
+        if
+            response
             and response.choices
             and response.choices[1]
             and response.choices[1].delta
-            and response.choices[1].delta.content then
+            and response.choices[1].delta.content
+        then
             local delta = response.choices[1].delta.content
             if delta == "\n" then
-                vim.api.nvim_buf_set_lines(buffer, currentLine, currentLine, false,
-                    { currentLineContents })
+                vim.api.nvim_buf_set_lines(buffer, currentLine, currentLine, false, { currentLineContents })
                 currentLine = currentLine + 1
                 currentLineContents = ""
             elseif delta:match("\n") then
                 for line in delta:gmatch("[^\n]+") do
-                    vim.api.nvim_buf_set_lines(buffer, currentLine, currentLine, false,
-                        { currentLineContents .. line })
+                    vim.api.nvim_buf_set_lines(buffer, currentLine, currentLine, false, { currentLineContents .. line })
                     currentLine = currentLine + 1
                     currentLineContents = ""
                 end
@@ -113,13 +113,17 @@ local function send_message()
     end
 
     local on_complete = function()
-        vim.api.nvim_buf_set_lines(buffer, currentLine, currentLine + 1, false,
-            { currentLineContents, "", "# User", "" })
+        vim.api.nvim_buf_set_lines(
+            buffer,
+            currentLine,
+            currentLine + 1,
+            false,
+            { currentLineContents, "", "# User", "" }
+        )
         if config.options.on_complete ~= nil then
             config.options.on_complete()
         end
     end
-
 
     openai.get_chatgpt_completion(config.options, messages, on_delta, on_complete)
 end

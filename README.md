@@ -1,43 +1,8 @@
-# flyboy
+# carrier.nvim
 
-Flyboy is a plugin for lightweight interaction with ChatGPT.
+carrier is an AI pair programmer that lives in your editor.
 
-<!-- markdownlint-disable-next-line no-bare-urls -->
-https://github.com/CamdenClark/flyboy/assets/11891578/3e3fdf5d-25cc-4691-bf25-0abd0a228424
-
-It works by using a simple Markdown format, as follows:
-
-```markdown
-# User
-
-Who was the 1st president of the United States?
-
-# Assistant
-
-George Washington
-
-# User
-```
-
-This makes it easy to:
-
-1. Start chats
-1. Save/share chats
-1. Edit conversations in line
-1. Have multi-turn conversations
-
-No popups that take over your screen, flyboy operates on any buffer.
-
-Flyboy also supports configuring custom templates, so you can go straight from
-your buffer to ChatGPT with context:
-
-```markdown
-# User
-
-Write a unit test in Lua for the following code
-<Your code from visual selection here>
-```
-
+It uses OpenAI's GPT models to generate code based on your
 
 ## Installation
 
@@ -49,43 +14,43 @@ export OPENAI_API_KEY=""
 
 2. Have curl installed on your machine
 
-3. Install `plenary.nvim` and `flyboy` using your package manager:
+3. Install `plenary.nvim` and `carrier` using your package manager:
 
 For example, using plug
 
 ```vim
 Plug 'nvim-lua/plenary.nvim'
-Plug 'CamdenClark/flyboy'
+Plug 'CamdenClark/carrier'
 ```
 
 ## Usage
 
-`:FlyboyOpen` functions open a new chat window. Split opens in a horizontal split,
+`:CarrierOpen` functions open a new chat window. Split opens in a horizontal split,
 while VSplit opens in a vertical split. They optionally take a template.
 
 ```vim
-:FlyboyOpen
-:FlyboyOpenSplit
-:FlyboyOpenVSplit
+:CarrierOpen
+:CarrierOpenSplit
+:CarrierOpenVSplit
 
 " open a chat buffer with the current text selected in visual mode
-:FlyboyOpen visual
+:CarrierOpen visual
 ```
 
-`:FlyboyStart` functions open a new chat window and automatically send the message to the
+`:CarrierStart` functions open a new chat window and automatically send the message to the
 assistant. You need to provide a template or the first message sent will be blank.
 
 ```vim
 " starts a chat session with the current text selected in visual mode
-:FlyboyStart visual
-:FlyboyStartSplit visual
-:FlyboyStartVSplit visual
+:CarrierStart visual
+:CarrierStartSplit visual
+:CarrierStartVSplit visual
 ```
 
 To send a message:
 
 ```vim
-:FlyboySendMessage
+:CarrierSendMessage
 ```
 
 The response from the Assistant will be streamed back to the same buffer.
@@ -97,14 +62,14 @@ The response from the Assistant will be streamed back to the same buffer.
 You can configure custom sources and templates for your ChatGPT prompts.
 
 ```lua
-require('flyboy.config').setup({
+require('carrier.config').setup({
   sources = {
     my_source = function () return "world" end
   },
   templates = {
     my_template = {
       template_fn = function(sources) return "# User\nHello, " .. sources.my_source() end
-      -- :FlyboyOpen my_template
+      -- :CarrierOpen my_template
       -- Output:
       -- # User
       -- Hello, world
@@ -121,11 +86,11 @@ Templates are how you construct prompts that will be sent to ChatGPT.
 
 #### Visual selection
 
-Flyboy supports adding something you've selected in visual mode to the contents
+Carrier supports adding something you've selected in visual mode to the contents
 of a prompt:
 
 ```lua
-require('flyboy.config').setup({
+require('carrier.config').setup({
   templates = {
     unit_test = {
       template_fn = function(sources)
@@ -133,7 +98,7 @@ require('flyboy.config').setup({
             .. "Write a unit test for the following code:\n"
             .. sources.visual()
       end
-      -- :FlyboyStart unit_test
+      -- :CarrierStart unit_test
       -- Output:
       -- # User
       -- Write a unit test for the following
@@ -145,10 +110,10 @@ require('flyboy.config').setup({
 
 #### Buffer selection
 
-Flyboy supports adding the contents of your current buffer to a prompt:
+Carrier supports adding the contents of your current buffer to a prompt:
 
 ```lua
-require('flyboy.config').setup({
+require('carrier.config').setup({
   templates = {
     unit_test_buffer = {
       template_fn = function(sources)
@@ -156,7 +121,7 @@ require('flyboy.config').setup({
             .. "Write unit tests for the code in the following file:\n"
             .. sources.buffer()
       end
-      -- :FlyboyStart unit_test_buffer
+      -- :CarrierStart unit_test_buffer
       -- Output:
       -- # User
       -- Write a unit test for the following
@@ -168,24 +133,24 @@ require('flyboy.config').setup({
 
 ### Alternative models: gpt-3.5-turbo-16k / gpt-4 / gpt-4-32k
 
-If you want to use Flyboy with a different model in OpenAI, call setup with the model:
+If you want to use Carrier with a different model in OpenAI, call setup with the model:
 
 ```lua
-require('flyboy.config').setup({
+require('carrier.config').setup({
   -- ...
   model = "gpt-4"
 })
 ```
 
-To change on the fly, call `:FlyboySwitchModel gpt-4`
+To change on the fly, call `:CarrierSwitchModel gpt-4`
 
 ### Alternative endpoints (Azure OpenAI)
 
-Flyboy supports configuring the URL and headers with a different endpoint that shares API compatibility (IE: Azure OpenAI)
+Carrier supports configuring the URL and headers with a different endpoint that shares API compatibility (IE: Azure OpenAI)
 with OpenAI, here's a reference implementation:
 
 ```lua
-require('flyboy.config').setup({
+require('carrier.config').setup({
   -- should be like "$AZURE_OPENAI_ENDPOINT/openai/deployments/gpt-35-turbo/chat/completions?api-version=2023-07-01-preview"
   url = vim.env.AZURE_OPENAI_GPT4_URL,
   headers = { 
@@ -202,10 +167,10 @@ init.lua that are bound to re-call setup with the updated URL and API key.
 
 ### Callback when message finished
 
-Flyboy supports configuring a callback function that is called when a response from the assistant finishes streaming.
+Carrier supports configuring a callback function that is called when a response from the assistant finishes streaming.
 
 ```lua
-require('flyboy.config').setup({
+require('carrier.config').setup({
   on_complete = function() print("foo") end
 })
 ```

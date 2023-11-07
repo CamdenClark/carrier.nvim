@@ -51,7 +51,8 @@ local function edit_selection()
     local messages = {
         {
             role = "system",
-            content = "Return an edit of the text given a user's instruction. Only return the edited text. Current buffer content:\n"
+            content = "Return an edit of the text given a user's instruction. Only return the edited text, don't use markdown backticks. "
+                .. "Current buffer content:\n"
                 .. context.get_current_buffer_text()
                 .. "User's edit instruction: "
                 .. edit_prompt,

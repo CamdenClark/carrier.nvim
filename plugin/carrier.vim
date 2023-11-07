@@ -10,3 +10,5 @@ command! CarrierSendMessage lua require('carrier.chat').send_message()
 
 command! -nargs=1 CarrierSwitchModel lua require('carrier.config').switch_model(<f-args>)
 command! -nargs=1 CarrierSetTemperature lua require('carrier.config').set_temperature(<f-args>)
+
+command! -range=% -nargs=* CarrierEditSelection lua require('carrier.edit').edit_selection(<f-args>)

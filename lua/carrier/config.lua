@@ -40,17 +40,17 @@ local templates = {
     blank = {
         template_fn = function(_)
             return "# User"
-        end
+        end,
     },
     visual = {
         template_fn = function(sources_table)
             return "# User\n" .. sources_table.visual()
-        end
+        end,
     },
     buffer = {
         template_fn = function(sources_table)
             return "# User\n" .. sources_table.buffer()
-        end
+        end,
     },
     visual_with_prompt = {
         template_fn = function(sources_table)
@@ -58,7 +58,7 @@ local templates = {
                 .. sources_table.prompt("Prompt to add before selection context: ")
                 .. "\n"
                 .. sources_table.visual()
-        end
+        end,
     },
 }
 
@@ -70,8 +70,8 @@ local defaults = {
     url = "https://api.openai.com/v1/chat/completions",
     headers = {
         Authorization = "Bearer " .. (vim.env.OPENAI_API_KEY or ""),
-        Content_Type = "application/json"
-    }
+        Content_Type = "application/json",
+    },
 }
 
 M.options = {}
@@ -87,11 +87,10 @@ end
 function M.set_temperature(temperature)
     local temp = tonumber(temperature)
     if temp == nil then
-        error("Temperature setting must be a number between 0 and 2: can't interpret " ..
-            temperature .. " as a number")
+        error("Temperature setting must be a number between 0 and 2: can't interpret " .. temperature .. " as a number")
         return
     end
-    if (temp < 0 or temp > 2) then
+    if temp < 0 or temp > 2 then
         error("Temperature setting must be a number between 0 and 2")
         return
     end

@@ -125,7 +125,7 @@ local function send_message()
         end
     end
 
-    openai.get_chatgpt_completion(config.options, messages, on_delta, on_complete)
+    openai.stream_chatgpt_completion(config.options, messages, on_delta, on_complete)
 end
 
 local function start_chat(template)

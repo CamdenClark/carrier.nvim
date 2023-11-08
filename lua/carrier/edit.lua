@@ -1,6 +1,7 @@
 local openai = require("carrier.openai")
 local config = require("carrier.config")
 local context = require("carrier.context")
+local log = require("carrier.log")
 
 local function get_selection()
     local start_pos = vim.fn.getpos("'<")
@@ -48,19 +49,25 @@ end
 
 local function edit_selection()
     local edit_prompt = vim.fn.input("Enter an edit instruction...")
+    local selection = get_selection()
+    log.log_message(
+        "Edit instruction: " .. edit_prompt .. "\n" .. "Code block to edit:\n" .. selection .. "# Assistant\n"
+    )
     local messages = {
         {
             role = "system",
             content = "Return an edit of the text given a user's instruction. Only return the edited text, don't use markdown backticks. "
-                .. "Current buffer content:\n"
-                .. context.get_current_buffer_text()
+                .. "All user's recently edited buffers:\n"
+                .. context.get_recent_buffers_text()
+                .. "\n"
                 .. "User's edit instruction: "
                 .. edit_prompt,
         },
-        { role = "user", content = get_selection() },
+        { role = "user", content = selection },
     }
     local replacement = openai.get_chatgpt_completion(config.options, messages)
     replace_selection(replacement)
+    log.log_message(replacement)
 end
 
 return {

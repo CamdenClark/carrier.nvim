@@ -1,9 +1,10 @@
 local openai = require("carrier.openai")
 local config = require("carrier.config")
 
-local function open_chat_with_text(text)
+local function open_log_with_text(text)
     -- create a new empty buffer
     local buffer = vim.api.nvim_create_buf(true, false)
+    vim.api.nvim_buf_set_name(buffer, "carrier log")
     vim.api.nvim_buf_set_option(buffer, "filetype", "markdown")
     local lines = vim.split(text, "\n")
 
@@ -12,36 +13,41 @@ local function open_chat_with_text(text)
     return buffer
 end
 
-local function open_chat_template(template)
-    if not template then
-        template = "blank"
+local function get_current_log_buffer()
+    local buffers = vim.api.nvim_list_bufs()
+    for _, buffer in ipairs(buffers) do
+        if vim.api.nvim_buf_is_valid(buffer) then
+            local buffer_name = vim.api.nvim_buf_get_name(buffer)
+            if buffer_name:match("carrier log") then
+                return buffer
+            end
+        end
     end
-    local final_text = config.options.templates[template].template_fn(config.options.sources)
 
-    return open_chat_with_text(final_text)
+    return open_log_with_text("# User")
 end
 
-local function open_chat(template)
-    local chat_buffer = open_chat_template(template)
+local function open_log()
+    local log_buffer = get_current_log_buffer()
 
-    vim.api.nvim_set_current_buf(chat_buffer)
-    return chat_buffer
+    vim.api.nvim_set_current_buf(log_buffer)
+    return log_buffer
 end
 
-local function open_chat_split(template)
-    local chat_buffer = open_chat_template(template)
-    vim.cmd("sp | b" .. chat_buffer)
+local function open_log_split()
+    local log_buffer = get_current_log_buffer()
+    vim.cmd("sp | b" .. log_buffer)
 
-    vim.api.nvim_set_current_buf(chat_buffer)
-    return chat_buffer
+    vim.api.nvim_set_current_buf(log_buffer)
+    return log_buffer
 end
 
-local function open_chat_vsplit(template)
-    local chat_buffer = open_chat_template(template)
-    vim.cmd("vsp | b" .. chat_buffer)
+local function open_log_vsplit()
+    local log_buffer = get_current_log_buffer()
+    vim.cmd("vsp | b" .. log_buffer)
 
-    vim.api.nvim_set_current_buf(chat_buffer)
-    return chat_buffer
+    vim.api.nvim_set_current_buf(log_buffer)
+    return log_buffer
 end
 
 local function parseMarkdown()
@@ -128,27 +134,19 @@ local function send_message()
     openai.stream_chatgpt_completion(config.options, messages, on_delta, on_complete)
 end
 
-local function start_chat(template)
-    open_chat(template)
-    send_message()
-end
+local function log_message(text)
+    local buffer = get_current_log_buffer()
+    local currentLine = vim.api.nvim_buf_line_count(buffer)
+    local lines = vim.split(text, "\n")
 
-local function start_chat_split(template)
-    open_chat_split(template)
-    send_message()
-end
-
-local function start_chat_vsplit(template)
-    open_chat_vsplit(template)
-    send_message()
+    table.insert(lines, "")
+    vim.api.nvim_buf_set_lines(buffer, currentLine, currentLine, true, lines)
 end
 
 return {
     send_message = send_message,
-    open_chat = open_chat,
-    open_chat_split = open_chat_split,
-    open_chat_vsplit = open_chat_vsplit,
-    start_chat = start_chat,
-    start_chat_split = start_chat_split,
-    start_chat_vsplit = start_chat_vsplit,
+    open_log = open_log,
+    open_log_split = open_log_split,
+    open_log_vsplit = open_log_vsplit,
+    log_message = log_message,
 }

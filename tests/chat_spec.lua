@@ -1,4 +1,4 @@
-local chat = require("carrier.chat")
+local chat = require("carrier.log")
 local openai = require("carrier.openai")
 local config = require("carrier.config")
 local mock = require("luassert.mock")

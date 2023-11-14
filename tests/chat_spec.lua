@@ -1,85 +1,17 @@
-local chat = require("carrier.log")
+local log = require("carrier.log")
 local openai = require("carrier.openai")
 local config = require("carrier.config")
 local mock = require("luassert.mock")
 
-describe("open_chat", function()
-    it("opens a new buffer with chat in it", function()
+describe("open_log", function()
+    it("opens a new buffer with log in it", function()
         -- Call the function with a range of lines and a new string
-        chat.open_chat()
+        log.open_log()
 
         -- Assert that the selected lines were replaced with the expected string
         local expected_lines = { "# User", "" }
         local actual_lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
         assert.are.same(expected_lines, actual_lines)
-    end)
-end)
-
-describe("open_chat visual", function()
-    it("opens a new buffer with selected text as a chat", function()
-        -- Set up a fake selection, starting on line 3, column 3, and ending on line 5, column 4
-        local selected_lines = { "hello world", "example", "some text", "more text here", "and here" }
-        vim.api.nvim_command("enew")
-        vim.api.nvim_buf_set_lines(0, 0, -1, false, selected_lines)
-        -- luacheck: ignore
-        vim.fn.getpos = function(mark)
-            if mark == "'<" then
-                return { 0, 2, 2 }
-            else
-                return { 0, 3, 7 }
-            end
-        end
-
-        -- Call the function to create a chat from the selection
-        local buffer = chat.open_chat("visual")
-        -- Assert that the new buffer was created and contains the expected chat text
-        local expected_text = "# User\nxample\nsome t\n"
-        local actual_text = table.concat(vim.api.nvim_buf_get_lines(buffer, 0, -1, false), "\n")
-        assert.are.same(expected_text, actual_text)
-    end)
-end)
-
-describe("open_chat with custom config", function()
-    it("uses the config template to open a chat", function()
-        config.setup({
-            templates = {
-                sample = {
-                    template_fn = function(_)
-                        return "# User\nTest"
-                    end,
-                },
-            },
-        })
-
-        -- Call the function to create a chat from the selection
-        local buffer = chat.open_chat("sample")
-        -- Assert that the new buffer was created and contains the expected chat text
-        local expected_text = "# User\nTest\n"
-        local actual_text = table.concat(vim.api.nvim_buf_get_lines(buffer, 0, -1, false), "\n")
-        assert.are.same(expected_text, actual_text)
-    end)
-    it("uses the config source and template to open a chat", function()
-        config.setup({
-            sources = {
-                a = function()
-                    return "Test"
-                end,
-            },
-            templates = {
-                sample = {
-                    template_fn = function(sources)
-                        return "# User\n" .. sources.a()
-                    end,
-                },
-            },
-        })
-
-        -- Call the function to create a chat from the selection
-        local buffer = chat.open_chat("sample")
-        -- Assert that the new buffer was created and contains the expected chat text
-        local expected_text = "# User\nTest\n"
-        local actual_text = table.concat(vim.api.nvim_buf_get_lines(buffer, 0, -1, false), "\n")
-        assert.are.same(expected_text, actual_text)
     end)
 end)
 
@@ -108,8 +40,7 @@ local function test_completion(start_content, chat_gpt_output, expected_loading,
     vim.api.nvim_buf_set_lines(0, 0, -1, false, start_content)
     mock.new(openai, true)
 
-    openai.stream_chatgpt_completion(options, messages, on_delta, on_complete)
-    _chatgpt_completion = function(_, _, on_delta, on_complete)
+    openai.stream_chatgpt_completion = function(_, _, on_delta, on_complete)
         local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
         assert.are.same(expected_loading, lines)
 
@@ -119,7 +50,7 @@ local function test_completion(start_content, chat_gpt_output, expected_loading,
         on_complete()
     end
 
-    chat.send_message()
+    log.send_message()
 
     local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
 
@@ -229,7 +160,7 @@ describe("send_message", function()
             on_complete()
         end
 
-        chat.send_message()
+        log.send_message()
 
         assert.are.same(true, called)
     end)

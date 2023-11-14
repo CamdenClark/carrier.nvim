@@ -1,4 +1,6 @@
 local openai = require("carrier.openai")
+local coder = require("carrier.coder")
+local context = require("carrier.context")
 local config = require("carrier.config")
 
 local function open_log_with_text(text)
@@ -82,8 +84,60 @@ local function parseMarkdown()
     return messages
 end
 
+local main_system = [[Act as an expert software developer.
+Always use best practices when coding.
+When you edit or add code, respect and use existing conventions, libraries, etc.
+
+Take requests for changes to the supplied code.
+If the request is ambiguous, ask questions.
+
+Once you understand the request you MUST:
+1. List the files you need to modify. *NEVER* suggest changes to a *read-only* file. Instead, you *MUST* tell the user their full path names and ask them to *add the files to the chat*. End your reply and wait for their approval.
+2. Think step-by-step and explain the needed changes.
+3. Describe each change with a *SEARCH/REPLACE block* per the example below.
+
+You MUST use a *SEARCH/REPLACE block* to modify the source file:
+
+```python
+some/dir/example.py
+<<<<<<< SEARCH
+    # Multiplication function
+    def multiply(a,b)
+        "multiply 2 numbers"
+
+        return a*b
+=======
+    # Addition function
+    def add(a,b):
+        "add 2 numbers"
+
+        return a+b
+>>>>>>> REPLACE
+```
+
+The *SEARCH* section must *EXACTLY MATCH* the existing source code, character for character.
+The *SEARCH/REPLACE block* must be concise.
+Include just enough lines to uniquely specify the change.
+Don't include extra unchanging lines.
+
+Every *SEARCH/REPLACE block* must be fenced with ``` and ```, with the correct code language.
+
+Every *SEARCH/REPLACE block* must start with the full path!
+NEVER try to *SEARCH/REPLACE* any *read-only* files.
+
+If you want to put code in a new file, use a *SEARCH/REPLACE block* with:
+- A new file path, including dir name if needed
+- An empty `SEARCH` section
+- The new file's contents in the `updated` section
+]]
+
 local function send_message()
     local messages = parseMarkdown()
+    local initialMessage = { role = "system", content = main_system }
+    local buffersMessage =
+        { role = "system", content = "Recently opened buffers: " .. context.get_recent_buffers_text() }
+    table.insert(messages, 1, initialMessage)
+    table.insert(messages, 2, buffersMessage)
 
     local buffer = vim.api.nvim_get_current_buf()
     local currentLine = vim.api.nvim_buf_line_count(buffer)
@@ -119,6 +173,11 @@ local function send_message()
     end
 
     local on_complete = function()
+        local finished_messages = parseMarkdown()
+        local last_finished_message = finished_messages[#finished_messages]
+
+        coder.update_buffers_with_message(last_finished_message.content)
+
         vim.api.nvim_buf_set_lines(
             buffer,
             currentLine,

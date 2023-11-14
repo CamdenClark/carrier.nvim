@@ -16,7 +16,7 @@ local function get_recent_buffers_text()
         local buffer_name = vim.fn.bufname(buf_id)
         local lines = vim.api.nvim_buf_get_lines(buf_id, 0, -1, false)
         local buffer_text = table.concat(lines, "\n")
-        recent_buffers_text = recent_buffers_text .. "[" .. buffer_name .. "]\n" .. buffer_text
+        recent_buffers_text = recent_buffers_text .. "[" .. buffer_name .. "]\n" .. buffer_text .. "\n"
     end
     return recent_buffers_text
 end

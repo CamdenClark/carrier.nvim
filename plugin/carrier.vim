@@ -8,3 +8,4 @@ command! -nargs=1 CarrierSwitchModel lua require('carrier.config').switch_model(
 command! -nargs=1 CarrierSetTemperature lua require('carrier.config').set_temperature(<f-args>)
 
 command! -range=% -nargs=* CarrierEditSelection lua require('carrier.edit').edit_selection(<f-args>)
+command! CarrierFixDiagnostic lua require('carrier.diagnostics').send_diagnostic_help_message()

@@ -1,5 +1,3 @@
-local openai = require("carrier.openai")
-
 local HEAD = "<<<<<<< SEARCH"
 local DIVIDER = "======="
 local UPDATED = ">>>>>>> REPLACE"
@@ -15,6 +13,7 @@ end
 local function replace_in_buffer(bufnr, update_block)
     local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
     local _, search, replace = unpack(update_block)
+
     local contents = table.concat(lines, "\n")
 
     contents = contents:gsub(search, replace)
@@ -29,15 +28,18 @@ local function replace_in_buffer(bufnr, update_block)
     vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, new_lines)
 end
 
-local function replace_in_buffer_by_filename(filename, update_block)
-    local bufnr = vim.fn.bufnr(filename)
+local function replace_in_buffer_by_filename(update_block)
+    local bufnr = vim.fn.bufnr(update_block[1])
     if bufnr == -1 then
         return
     end
     replace_in_buffer(bufnr, update_block)
 end
 
-local function get_edit_block() end
+local function update_buffers_with_message(message)
+    local update_block = find_update_block(message)
+    replace_in_buffer_by_filename(update_block)
+end
 
 local edit = [[
 Heres the change:
@@ -54,4 +56,5 @@ Tooooo
 
 Hope you like it!
 ]]
--- print(find_update_block(edit))
+
+return { update_buffers_with_message = update_buffers_with_message }

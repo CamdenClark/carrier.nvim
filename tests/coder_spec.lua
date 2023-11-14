@@ -65,9 +65,6 @@ Hope you like it!
 
         coder.update_buffers_with_message(edit)
         local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
-        for _, line in ipairs(lines) do
-            print(line)
-        end
 
         assert.are.same("Bar\nToo\n", table.concat(lines, "\n"))
     end)

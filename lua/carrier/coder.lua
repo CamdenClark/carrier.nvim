@@ -1,13 +1,14 @@
 local HEAD = "<<<<<<< SEARCH"
 local DIVIDER = "======="
 local UPDATED = ">>>>>>> REPLACE"
-local split_re = "(.-)\n" .. HEAD .. "\n(.-)\n" .. DIVIDER .. "\n(.-)\n" .. UPDATED
+local split_re = "([^\n]*)\n?" .. HEAD .. "\n(.-)\n" .. DIVIDER .. "\n(.-)\n" .. UPDATED
 
-local function find_update_block(content)
-    local above, search, replace = string.match(content, split_re)
-    local filename = above:match("```.*\n(.-)$")
-
-    return { filename, search, replace }
+local function find_update_blocks(content)
+    local blocks = {}
+    for filename, search, replace in string.gmatch(content, split_re) do
+        table.insert(blocks, { filename, search, replace })
+    end
+    return blocks
 end
 
 local function replace_in_buffer(bufnr, update_block)
@@ -37,8 +38,10 @@ local function replace_in_buffer_by_filename(update_block)
 end
 
 local function update_buffers_with_message(message)
-    local update_block = find_update_block(message)
-    replace_in_buffer_by_filename(update_block)
+    local update_blocks = find_update_blocks(message)
+    for _, block in ipairs(update_blocks) do
+        replace_in_buffer_by_filename(block)
+    end
 end
 
 local edit = [[

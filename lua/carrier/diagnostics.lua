@@ -21,14 +21,23 @@ end
 local function send_diagnostic_help_message()
     -- Grab the first diagnostic under the cursor.
     local diagnostics = get_diagnostic_under_cursor()
-    local diagnostic_message = diagnostics[1] and diagnostics[1].message or "No diagnostics found under cursor."
-
-    if not diagnostic_message then
+    local diagnostic = diagnostics[1]
+    if not diagnostic then
         return
-    end
+    end -- Calculate the range of lines to get around the diagnostic.
+    local diagnostic_message = diagnostic and diagnostic.message or "No diagnostics found under cursor."
+    local start_line = math.max(diagnostic.lnum - 5, 0) + 1 -- Convert to 1-index and ensure not less than 1.
+    local end_line = diagnostic.end_lnum + 5 + 1 -- Add 1 to account for end line, convert to 1-index.
+    local total_lines = vim.api.nvim_buf_line_count(0) -- Count total lines in the buffer.
+    end_line = math.min(end_line, total_lines) -- Ensure not greater than total number of lines.
+
+    -- Fetch the lines around the diagnostic
+    local lines = vim.api.nvim_buf_get_lines(0, start_line - 1, end_line, false) -- Use 0-index for the API call.
+    local context = table.concat(lines, "\n")
+
     log.open_log()
     -- Add it to the carrier log buffer.
-    log.log_message(diagnostic_message)
+    log.log_message("Context: \n" .. context .. "Please help me fix this diagnostic: " .. diagnostic_message)
     -- Call send_message from log.lua.
     log.send_message()
 end

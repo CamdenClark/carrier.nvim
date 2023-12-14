@@ -14,7 +14,7 @@ export OPENAI_API_KEY=""
 
 2. Have curl installed on your machine
 
-3. Install `plenary.nvim` and `carrier` using your package manager:
+3. Install `plenary.nvim` and `carrier.nvim` using your package manager:
 
 For example, using plug
 
@@ -57,86 +57,12 @@ The response from the Assistant will be streamed back to the same buffer.
 
 ## Configuration
 
-### Templates
-
-You can configure custom sources and templates for your ChatGPT prompts.
-
-```lua
-require('carrier.config').setup({
-  sources = {
-    my_source = function () return "world" end
-  },
-  templates = {
-    my_template = {
-      template_fn = function(sources) return "# User\nHello, " .. sources.my_source() end
-      -- :CarrierOpen my_template
-      -- Output:
-      -- # User
-      -- Hello, world
-    }
-  }
-})
-```
-
-Sources are intended to be helpers to get common pieces of data that you'd be
-interested in to build your prompts to ChatGPT. Some sources are pre-created,
-including `visual`, which provides the text that's visually selected.
-
-Templates are how you construct prompts that will be sent to ChatGPT.
-
-#### Visual selection
-
-Carrier supports adding something you've selected in visual mode to the contents
-of a prompt:
-
-```lua
-require('carrier.config').setup({
-  templates = {
-    unit_test = {
-      template_fn = function(sources)
-          return "# User\n"
-            .. "Write a unit test for the following code:\n"
-            .. sources.visual()
-      end
-      -- :CarrierStart unit_test
-      -- Output:
-      -- # User
-      -- Write a unit test for the following
-      -- <Your visual selection>
-    }
-  }
-})
-```
-
-#### Buffer selection
-
-Carrier supports adding the contents of your current buffer to a prompt:
-
-```lua
-require('carrier.config').setup({
-  templates = {
-    unit_test_buffer = {
-      template_fn = function(sources)
-          return "# User\n"
-            .. "Write unit tests for the code in the following file:\n"
-            .. sources.buffer()
-      end
-      -- :CarrierStart unit_test_buffer
-      -- Output:
-      -- # User
-      -- Write a unit test for the following
-      -- <Your previous buffer's contents>
-    }
-  }
-})
-```
-
 ### Alternative models: gpt-3.5-turbo-16k / gpt-4 / gpt-4-32k
 
 If you want to use Carrier with a different model in OpenAI, call setup with the model:
 
 ```lua
-require('carrier.config').setup({
+require('carrier').setup({
   -- ...
   model = "gpt-4"
 })
@@ -150,8 +76,8 @@ Carrier supports configuring the URL and headers with a different endpoint that 
 with OpenAI, here's a reference implementation:
 
 ```lua
-require('carrier.config').setup({
-  -- should be like "$AZURE_OPENAI_ENDPOINT/openai/deployments/gpt-35-turbo/chat/completions?api-version=2023-07-01-preview"
+require('carrier').setup({
+  -- should be like "$AZURE_OPENAI_ENDPOINT/openai/deployments/$AZURE_OPENAI_DEPLOYMENT_NAME/chat/completions?api-version=2023-07-01-preview"
   url = vim.env.AZURE_OPENAI_GPT4_URL,
   headers = { 
     Api_Key = vim.env.AZURE_OPENAI_GPT4_KEY,
@@ -170,7 +96,7 @@ init.lua that are bound to re-call setup with the updated URL and API key.
 Carrier supports configuring a callback function that is called when a response from the assistant finishes streaming.
 
 ```lua
-require('carrier.config').setup({
+require('carrier').setup({
   on_complete = function() print("foo") end
 })
 ```

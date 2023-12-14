@@ -115,18 +115,14 @@ local function send_message()
             and response.choices[1].delta.content
         then
             local delta = response.choices[1].delta.content
-            if delta == "\n" then
-                vim.api.nvim_buf_set_lines(buffer, currentLine, currentLine, false, { currentLineContents })
-                currentLine = currentLine + 1
-                currentLineContents = ""
-            elseif delta:match("\n") then
-                for line in delta:gmatch("[^\n]+") do
-                    vim.api.nvim_buf_set_lines(buffer, currentLine, currentLine, false, { currentLineContents .. line })
+            for char in delta:gmatch(".") do
+                if char == "\n" then
+                    vim.api.nvim_buf_set_lines(buffer, currentLine, currentLine, false, { currentLineContents })
                     currentLine = currentLine + 1
                     currentLineContents = ""
+                else
+                    currentLineContents = currentLineContents .. char
                 end
-            elseif delta ~= nil then
-                currentLineContents = currentLineContents .. delta
             end
         end
     end

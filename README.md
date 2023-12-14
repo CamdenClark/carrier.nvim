@@ -20,7 +20,7 @@ For example, using plug
 
 ```vim
 Plug 'nvim-lua/plenary.nvim'
-Plug 'CamdenClark/carrier'
+Plug 'CamdenClark/carrier.nvim'
 ```
 
 ## Usage

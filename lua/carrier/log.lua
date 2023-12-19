@@ -7,6 +7,9 @@ local function open_log_with_text(text)
     local buffer = vim.api.nvim_create_buf(true, false)
     vim.api.nvim_buf_set_name(buffer, "carrier log")
     vim.api.nvim_buf_set_option(buffer, "filetype", "markdown")
+    vim.api.nvim_buf_set_option(buffer, "buftype", "nofile") -- Set buffer type to 'nofile'
+    vim.api.nvim_buf_set_option(buffer, "swapfile", false) -- Do not create a swapfile
+    vim.api.nvim_buf_set_option(buffer, "bufhidden", "hide") -- Hide buffer when abandoned
     local lines = vim.split(text, "\n")
 
     table.insert(lines, "")

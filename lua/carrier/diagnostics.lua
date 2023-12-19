@@ -37,7 +37,7 @@ local function send_diagnostic_help_message()
 
     log.open_log()
     -- Add it to the carrier log buffer.
-    log.log_message("Context: \n" .. context .. "Please help me fix this diagnostic: " .. diagnostic_message)
+    log.log_message("Context: \n" .. context .. "\n\nPlease help me fix this diagnostic:\n" .. diagnostic_message)
     -- Call send_message from log.lua.
     log.send_message()
 end

@@ -1,7 +1,7 @@
 local curl = require("plenary.curl")
 
 local function stream_chatgpt_completion(options, messages, on_delta, on_complete)
-    curl.post(options.url, {
+    return curl.post(options.url, {
         headers = options.headers,
         body = vim.fn.json_encode({
             model = options.model,
@@ -10,11 +10,17 @@ local function stream_chatgpt_completion(options, messages, on_delta, on_complet
             stream = true,
         }),
         stream = vim.schedule_wrap(function(_, data, _)
+            if not data then
+                return
+            end
             local raw_message = string.gsub(data, "^data: ", "")
             if raw_message == "[DONE]" then
                 on_complete()
             elseif string.len(data) > 6 then
-                on_delta(vim.fn.json_decode(string.sub(data, 6)))
+                local ok, decoded_data = pcall(vim.fn.json_decode, string.sub(data, 6))
+                if ok then
+                    on_delta(decoded_data)
+                end
             end
         end),
     })

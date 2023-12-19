@@ -2,6 +2,8 @@ local openai = require("carrier.openai")
 local context = require("carrier.context")
 local config = require("carrier.config")
 
+local current_completion_job = nil
+
 local function open_log_with_text(text)
     -- create a new empty buffer
     local buffer = vim.api.nvim_create_buf(true, false)
@@ -143,7 +145,18 @@ local function send_message()
         end
     end
 
-    openai.stream_chatgpt_completion(config.options, messages, on_delta, on_complete)
+    current_completion_job = openai.stream_chatgpt_completion(config.options, messages, on_delta, on_complete)
+end
+
+local function stop_message()
+    if current_completion_job and not current_completion_job.is_shutdown then
+        current_completion_job:shutdown()
+        local buffer = get_current_log_buffer()
+        -- get last line
+        local currentLine = vim.api.nvim_buf_line_count(buffer) - 1
+
+        vim.api.nvim_buf_set_lines(buffer, currentLine, currentLine + 1, false, { "", "# User", "" })
+    end
 end
 
 local function log_message(text)
@@ -161,4 +174,5 @@ return {
     open_log_split = open_log_split,
     open_log_vsplit = open_log_vsplit,
     log_message = log_message,
+    stop_message = stop_message,
 }

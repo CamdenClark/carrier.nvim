@@ -146,6 +146,7 @@ local function send_message()
             false,
             { currentLineContents, "", "# User", "" }
         )
+        current_completion_job = nil
         if config.options.on_complete ~= nil then
             config.options.on_complete()
         end

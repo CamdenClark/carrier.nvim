@@ -119,16 +119,18 @@ local function send_message()
     table.insert(messages, 1, initialMessage)
     table.insert(messages, 2, buffersMessage)
 
-    local cursor_context = context.get_immediate_cursor_context()
-    if cursor_context then
-        local rootFormMessage = {
-            role = "system",
-            content = "Code context under user's cursor:\n" .. cursor_context,
-        }
-        table.insert(messages, 3, rootFormMessage)
+    local _, buffer = get_current_log_buffer()
+    if buffer ~= vim.api.nvim_get_current_buf() then
+        local cursor_context = context.get_immediate_cursor_context()
+        if cursor_context then
+            local rootFormMessage = {
+                role = "system",
+                content = "Code context under user's cursor:\n" .. cursor_context,
+            }
+            table.insert(messages, 3, rootFormMessage)
+        end
     end
 
-    local _, buffer = get_current_log_buffer()
     local currentLine = vim.api.nvim_buf_line_count(buffer)
 
     vim.api.nvim_buf_set_lines(buffer, currentLine, currentLine, false, { "", "# Assistant", "..." })

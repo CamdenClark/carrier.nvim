@@ -100,9 +100,14 @@ local function send_message()
     local messages = parseMarkdown()
     local initialMessage = { role = "system", content = main_system }
     local buffersMessage =
-        { role = "system", content = "Recently opened buffers: " .. context.get_recent_buffers_text() }
+        { role = "system", content = "Recently opened buffers:\n" .. context.get_recent_buffers_text() }
+    local rootFormMessage = {
+        role = "system",
+        content = "Code context under user's cursor:\n" .. context.get_largest_direct_descendant_at_cursor(),
+    }
     table.insert(messages, 1, initialMessage)
     table.insert(messages, 2, buffersMessage)
+    table.insert(messages, 3, rootFormMessage)
 
     local buffer = get_current_log_buffer()
     local currentLine = vim.api.nvim_buf_line_count(buffer)
@@ -215,6 +220,6 @@ return {
     open_log_vsplit = open_log_vsplit,
     log_message = log_message,
     stop_message = stop_message,
-    quick_ask = quick_ask,
+    quick_message = quick_message,
     send_diagnostic_help_message = send_diagnostic_help_message,
 }

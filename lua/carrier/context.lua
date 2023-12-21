@@ -24,28 +24,40 @@ local function get_recent_buffers_text()
     return recent_buffers_text
 end
 
-local function get_current_root_form()
+local function get_largest_direct_descendant_at_cursor()
+    local cursor = vim.api.nvim_win_get_cursor(0) -- Get the current cursor position (0 indicating the current window)
+    local row, col = cursor[1] - 1, cursor[2] -- Adjust the row to 0-based indexing
     local bufnr = vim.api.nvim_get_current_buf()
     local parser = ts.get_parser(bufnr)
-    -- We should perform a check here to make sure the parser is actually available.
+
     if not parser then
-        vim.api.nvim_err_writeln("Tree-sitter parser not available for current buffer.")
+        vim.api.nvim_err_writeln("Tree-sitter parser not available for the current buffer.")
         return
     end
-    local tree = parser:parse()[1] -- Get the first syntax tree (which is the root for most purposes)
-    local root = tree:root()
-    local start_row, start_col, end_row, end_col = root:range()
-    print(start_row, start_col, end_row, end_col)
 
-    -- Using nvim_buf_get_text because it respects start and end column range,
-    -- unlike nvim_buf_get_lines which gets full lines
-    local lines = vim.api.nvim_buf_get_text(bufnr, start_row, start_col, end_row - 1, end_col - 1, {})
-    local root_form = table.concat(lines, "\n")
-    return root_form
+    local tree = parser:parse()[1]
+    local root = tree:root()
+    local node = root:named_descendant_for_range(row, col, row, col)
+
+    if not node then
+        vim.api.nvim_err_writeln("No Treesitter node found at the cursor position.")
+        return
+    end
+
+    -- Walk up the tree until we find a node that is a direct child of the root node
+    while node:parent() and node:parent() ~= root do
+        node = node:parent()
+    end
+
+    local start_row, start_col, end_row, end_col = node:range()
+    local lines = vim.api.nvim_buf_get_text(bufnr, start_row, start_col, end_row, end_col, {})
+    local node_text = table.concat(lines, "\n")
+
+    return node_text
 end
 
 return {
     get_current_buffer_text = get_current_buffer_text,
     get_recent_buffers_text = get_recent_buffers_text,
-    get_current_root_form = get_current_root_form,
+    get_largest_direct_descendant_at_cursor = get_largest_direct_descendant_at_cursor,
 }

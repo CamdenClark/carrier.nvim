@@ -75,7 +75,7 @@ end
 local function parseMarkdown()
     local messages = {}
     local currentEntry = nil
-    local buffer = vim.api.nvim_get_current_buf()
+    local _, buffer = get_current_log_buffer()
     local lines = vim.api.nvim_buf_get_lines(buffer, 0, -1, false)
     for _, line in ipairs(lines) do
         if line:match("^#%s+(.*)$") then
@@ -121,7 +121,7 @@ local function send_message()
 
     local _, buffer = get_current_log_buffer()
     if buffer ~= vim.api.nvim_get_current_buf() then
-        local cursor_context = context.get_immediate_cursor_context()
+        local cursor_context = context.get_largest_direct_descendant_at_cursor()
         if cursor_context then
             local rootFormMessage = {
                 role = "system",

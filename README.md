@@ -32,22 +32,9 @@ while VSplit opens in a vertical split. They optionally take a template.
 :CarrierOpen
 :CarrierOpenSplit
 :CarrierOpenVSplit
-
-" open a chat buffer with the current text selected in visual mode
-:CarrierOpen visual
 ```
 
-`:CarrierStart` functions open a new chat window and automatically send the message to the
-assistant. You need to provide a template or the first message sent will be blank.
-
-```vim
-" starts a chat session with the current text selected in visual mode
-:CarrierStart visual
-:CarrierStartSplit visual
-:CarrierStartVSplit visual
-```
-
-To send a message:
+To send a message in the carrier log buffer:
 
 ```vim
 :CarrierSendMessage

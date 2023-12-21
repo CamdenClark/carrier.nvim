@@ -47,27 +47,31 @@ local function replace_selection(new_text)
     vim.api.nvim_buf_set_lines(buffer, start_line - 1, end_line, false, new_lines)
 end
 
+local edit_instruction = [[Act as an expert software developer.
+Always use best practices when coding.
+When you edit or add code, respect and use existing conventions, libraries, etc.
+Return an edit of the code given a user's instruction. Only return the edited code, don't use markdown backticks,
+and don't provide any commentary.
+]]
+
 local function edit_selection()
     local edit_prompt = vim.fn.input("Enter an edit instruction...")
     local selection = get_selection()
-    log.log_message(
-        "Edit instruction: " .. edit_prompt .. "\n" .. "Code block to edit:\n" .. selection .. "# Assistant\n"
-    )
     local messages = {
         {
             role = "system",
-            content = "Return an edit of the text given a user's instruction. Only return the edited text, don't use markdown backticks. "
-                .. "All user's recently edited buffers:\n"
+            content = edit_instruction
+                .. "User's recently edited buffers:\n"
                 .. context.get_recent_buffers_text()
-                .. "\n"
-                .. "User's edit instruction: "
-                .. edit_prompt,
+                .. "\n",
         },
-        { role = "user", content = selection },
+        {
+            role = "user",
+            content = selection .. "\n\n" .. "" .. "User's edit instruction: " .. edit_prompt,
+        },
     }
     local replacement = openai.get_chatgpt_completion(config.options, messages)
     replace_selection(replacement)
-    log.log_message(replacement)
 end
 
 return {

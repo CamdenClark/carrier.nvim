@@ -1,7 +1,6 @@
 local openai = require("carrier.openai")
 local config = require("carrier.config")
 local context = require("carrier.context")
-local log = require("carrier.log")
 
 local function get_selection()
     local start_pos = vim.fn.getpos("'<")

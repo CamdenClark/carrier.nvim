@@ -1,8 +1,14 @@
 # carrier.nvim
 
-carrier is an AI pair programmer that lives in your editor.
+carrier.nvim is a ChatGPT plugin for Neovim that provides
+the AI the context of your editor.
 
-It uses OpenAI's GPT models to generate code based on your
+Some pieces of context that we give to the AI:
+1. The contents of the 5 recently-edited still-open buffers
+2. The contents of diagnostic information in the buffers.
+3. The root tree-sitter form at the current cursor position.
+
+This makes the AI much more useful for programming than a generic chatbot.
 
 ## Installation
 
@@ -25,8 +31,8 @@ Plug 'CamdenClark/carrier.nvim'
 
 ## Usage
 
-`:CarrierOpen` functions open a new chat window. Split opens in a horizontal split,
-while VSplit opens in a vertical split. They optionally take a template.
+`:CarrierOpen` functions opens the carrier chat log. 
+Split opens in a horizontal split, while VSplit opens in a vertical split.
 
 ```vim
 :CarrierOpen

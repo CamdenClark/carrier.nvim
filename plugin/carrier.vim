@@ -4,8 +4,6 @@ command! -range=% -nargs=* CarrierLogOpenVSplit lua require('carrier.log').open_
 
 command! CarrierSendMessage lua require('carrier.log').send_message()
 command! CarrierStopMessage lua require('carrier.log').stop_message()
-command! CarrierQuickMessage lua require('carrier.log').quick_message()
-command! CarrierSendDiagnosticMessage lua require('carrier.log').send_diagnostic_help_message()
 
 command! -nargs=1 CarrierSwitchModel lua require('carrier.config').switch_model(<f-args>)
 

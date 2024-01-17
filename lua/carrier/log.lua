@@ -111,7 +111,15 @@ When you edit or add code, respect and use existing conventions, libraries, etc.
 Take requests for help with the supplied code.
 If the request is ambiguous, ask questions.]]
 
-local function send_message()
+local function trim(s)
+    return s:match("^%s*(.-)%s*$")
+end
+
+local function send_message(msg)
+    if current_completion_job and not current_completion_job.is_shutdown then
+        return
+    end
+    local _, buffer = get_current_log_buffer()
     local messages = parseMarkdown()
     local initialMessage = { role = "system", content = main_system }
     local buffersMessage =
@@ -119,7 +127,6 @@ local function send_message()
     table.insert(messages, 1, initialMessage)
     table.insert(messages, 2, buffersMessage)
 
-    local _, buffer = get_current_log_buffer()
     if buffer ~= vim.api.nvim_get_current_buf() then
         local cursor_context = context.get_largest_direct_descendant_at_cursor()
         if cursor_context then
@@ -132,6 +139,17 @@ local function send_message()
     end
 
     local currentLine = vim.api.nvim_buf_line_count(buffer)
+
+    if msg then
+        messages[#messages].content = messages[#messages].content + msg
+    else
+        if trim(messages[#messages].content) == "" then
+            local content = vim.fn.input("> ")
+            messages[#messages].content = content
+            vim.api.nvim_buf_set_lines(buffer, currentLine - 1, currentLine, false, { content })
+            currentLine = currentLine + 1
+        end
+    end
 
     vim.api.nvim_buf_set_lines(buffer, currentLine, currentLine, false, { "", "# Assistant", "..." })
 
@@ -187,52 +205,10 @@ local function stop_message()
     end
 end
 
-local function log_message(text)
-    local _, buffer = get_current_log_buffer()
-    local currentLine = vim.api.nvim_buf_line_count(buffer)
-    local lines = vim.split(text, "\n")
-
-    table.insert(lines, "")
-    vim.api.nvim_buf_set_lines(buffer, currentLine, currentLine, true, lines)
-end
-
--- Add this function to lua/carrier/log.lua
-local function quick_message()
-    -- Prompt the user for input and store the result in 'user_message'
-    local user_message = vim.fn.input("Ask Carrier: ")
-
-    -- Check that the user_message is not empty
-    if user_message == nil or user_message:match("^%s*$") then
-        return
-    end
-
-    log_message(user_message)
-    send_message()
-    open_log()
-end
-
-local function send_diagnostic_help_message()
-    -- Grab the first diagnostic under the cursor.
-    local all_diagnostics = diagnostics.get_diagnostic_under_cursor()
-    local diagnostic = all_diagnostics[1]
-    if not diagnostic then
-        return
-    end
-    -- Calculate the range of lines to get around the diagnostic.
-    local diagnostic_message = diagnostic and diagnostic.message or "No diagnostics found under cursor."
-
-    log_message("Please help me fix this diagnostic:\n" .. diagnostic_message)
-    send_message()
-    open_log()
-end
-
 return {
     send_message = send_message,
     open_log = open_log,
     open_log_split = open_log_split,
     open_log_vsplit = open_log_vsplit,
-    log_message = log_message,
     stop_message = stop_message,
-    quick_message = quick_message,
-    send_diagnostic_help_message = send_diagnostic_help_message,
 }

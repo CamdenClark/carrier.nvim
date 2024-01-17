@@ -140,8 +140,10 @@ local function send_message(msg)
 
     local currentLine = vim.api.nvim_buf_line_count(buffer)
 
-    if msg then
-        messages[#messages].content = messages[#messages].content + msg
+    if msg and msg ~= "" then
+        messages[#messages].content = messages[#messages].content .. "\n" .. trim(msg)
+        vim.api.nvim_buf_set_lines(buffer, currentLine - 1, currentLine, false, { trim(msg) })
+        currentLine = currentLine + 1
     else
         if trim(messages[#messages].content) == "" then
             local content = vim.fn.input("> ")

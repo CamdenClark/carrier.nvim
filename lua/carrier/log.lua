@@ -123,9 +123,14 @@ local function send_message(msg)
     local messages = parseMarkdown()
     local initialMessage = { role = "system", content = main_system }
     local buffersMessage =
-        { role = "system", content = "Recently opened buffers:\n" .. context.get_recent_buffers_text() }
+        { role = "system", content = "Recently opened buffers:\n" .. context.get_buffers_content_summary() }
+    local diagnosticsMessage = {
+        role = "system",
+        content = "Diagnostic message at user's cursor:\n" .. diagnostics.get_diagnostic_under_cursor(),
+    }
     table.insert(messages, 1, initialMessage)
     table.insert(messages, 2, buffersMessage)
+    table.insert(messages, 3, diagnosticsMessage)
 
     if buffer ~= vim.api.nvim_get_current_buf() then
         local cursor_context = context.get_largest_direct_descendant_at_cursor()

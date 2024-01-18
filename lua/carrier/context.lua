@@ -1,36 +1,58 @@
-local ts = require("vim.treesitter")
+local function get_last_non_carrier_buffer_and_pos()
+    local bufinfo = vim.fn.getbufinfo({ buflisted = 1 })
+    table.sort(bufinfo, function(a, b)
+        return a.lastused > b.lastused
+    end)
 
-local function get_current_buffer_text()
-    -- Get the current buffer ID
-    local buf_id = vim.api.nvim_get_current_buf()
-    -- Get all lines from the current buffer
-    local lines = vim.api.nvim_buf_get_lines(buf_id, 0, -1, false)
-    -- Concatenate all lines into a single string
-    return table.concat(lines, "\n")
-end
-
-local function get_recent_buffers_text()
-    local recent_buffers_text = ""
-    local recent_buffers = vim.fn.getbufinfo({ buflisted = 1 })
-    local max_buffers = math.min(#recent_buffers, 5)
-    for i = 1, max_buffers do
-        local buf_id = recent_buffers[i].bufnr
-        local buffer_name = vim.fn.bufname(buf_id)
-        -- Skip if buffer name matches 'carrier log'
-        if buffer_name ~= "carrier log" then
-            local lines = vim.api.nvim_buf_get_lines(buf_id, 0, -1, false)
-            local buffer_text = table.concat(lines, "\n")
-            recent_buffers_text = recent_buffers_text .. "[" .. buffer_name .. "]\n" .. buffer_text .. "\n"
+    for _, buf in ipairs(bufinfo) do
+        -- Check if buffer is loaded and not a carrier log buffer
+        if vim.api.nvim_buf_is_loaded(buf.bufnr) and not buf.name:match("carrier log") then
+            local last_pos = { buf.lnum, 0 } or { 1, 0 } -- Fallback to start of buffer if not found
+            return buf.bufnr, last_pos
         end
     end
-    return recent_buffers_text
+    return nil, nil
 end
 
-local function get_largest_direct_descendant_at_cursor()
-    local cursor = vim.api.nvim_win_get_cursor(0) -- Get the current cursor position (0 indicating the current window)
-    local row, col = cursor[1] - 1, cursor[2] -- Adjust the row to 0-based indexing
-    local bufnr = vim.api.nvim_get_current_buf()
-    local success, parser = pcall(ts.get_parser, bufnr)
+local function get_buffers_content_summary()
+    local buffers_summary = ""
+    local total_length = 0
+    local max_content_length = 10000
+    local TOTAL_MAX_LENGTH = 20000
+
+    -- Get buffer info for all listed buffers sorted by last change time in descending order
+    local bufinfo = vim.fn.getbufinfo({ buflisted = 1 })
+    table.sort(bufinfo, function(a, b)
+        return a.lastused > b.lastused
+    end)
+
+    for _, buf in ipairs(bufinfo) do
+        if buf.name and buf.name ~= "carrier log" and vim.api.nvim_buf_is_loaded(buf.bufnr) then
+            local lines = vim.api.nvim_buf_get_lines(buf.bufnr, 0, -1, false)
+            local content = table.concat(lines, "\n")
+            local content_length = #content
+
+            if content_length <= max_content_length and (total_length + content_length) < TOTAL_MAX_LENGTH then
+                local header = buf.name .. "\n"
+                local header_length = #header
+                if (total_length + header_length) >= TOTAL_MAX_LENGTH then
+                    break
+                end
+
+                buffers_summary = buffers_summary .. header .. content .. "\n\n"
+                total_length = total_length + content_length + header_length
+            end
+        end
+        if total_length >= TOTAL_MAX_LENGTH then
+            break
+        end
+    end
+
+    return buffers_summary
+end
+
+local function get_largest_direct_descendant_at_pos(bufnr, row, col)
+    local success, parser = pcall(require("vim.treesitter").get_parser, bufnr)
     if not success or not parser then
         return
     end
@@ -55,8 +77,17 @@ local function get_largest_direct_descendant_at_cursor()
     return node_text
 end
 
+-- And you can modify the original get_largest_direct_descendant_at_cursor to use this new function
+local function get_largest_direct_descendant_at_cursor()
+    local cursor = vim.api.nvim_win_get_cursor(0)
+    local row, col = cursor[1] - 1, cursor[2]
+    local bufnr = vim.api.nvim_get_current_buf()
+
+    return get_largest_direct_descendant_at_pos(bufnr, row, col)
+end
+
 return {
-    get_current_buffer_text = get_current_buffer_text,
-    get_recent_buffers_text = get_recent_buffers_text,
     get_largest_direct_descendant_at_cursor = get_largest_direct_descendant_at_cursor,
+    get_buffers_content_summary = get_buffers_content_summary,
+    get_last_non_carrier_buffer_and_pos = get_last_non_carrier_buffer_and_pos,
 }

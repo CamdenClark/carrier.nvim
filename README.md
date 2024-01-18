@@ -1,14 +1,15 @@
 # carrier.nvim
 
-carrier.nvim is a ChatGPT plugin for Neovim that provides
-the AI the context of your editor.
+carrier.nvim is a ChatGPT plugin for Neovim that allows you to chat
+with the AI given context in your editor.
 
 Some pieces of context that we give to the AI:
-1. The contents of the 5 recently-edited still-open buffers
-2. The contents of diagnostic information in the buffers.
-3. The root tree-sitter form at the current cursor position.
+1. The contents of recently-edited open buffers
+2. The contents of diagnostic information at your cursor
 
-This makes the AI much more useful for programming than a generic chatbot.
+This makes the AI much more useful for day-to-day programming tasks
+than base ChatGPT because you don't have to self-manage context or
+copy and paste to a web interface.
 
 ## Installation
 
@@ -22,11 +23,29 @@ export OPENAI_API_KEY=""
 
 3. Install `plenary.nvim` and `carrier.nvim` using your package manager:
 
-For example, using plug
+### Plug
 
 ```vim
 Plug 'nvim-lua/plenary.nvim'
 Plug 'CamdenClark/carrier.nvim'
+```
+
+### lazy
+```lua
+{
+  "CamdenClark/carrier.nvim",
+  dependencies = {
+    "nvim-lua/plenary.nvim",
+  },
+  keys = {
+    { "<leader>ao", "<cmd>CarrierLogOpen<cr>", desc = "Open Carrier log" },
+    { "<leader>as", "<cmd>CarrierSendMessage<cr>", desc = "Send message" },
+    { "<leader>ak", "<cmd>CarrierStopMessage<cr>", desc = "Stop current message" },
+  },
+  opts = {
+    model = "gpt-4-1106-preview",
+  },
+}
 ```
 
 ## Usage

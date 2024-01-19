@@ -1,7 +1,7 @@
 # carrier.nvim
 
 carrier.nvim is a ChatGPT plugin for Neovim that allows you to chat
-with the AI given context in your editor.
+with ChatGPT automatically provided with the context in your editor.
 
 Some pieces of context that we give to the AI:
 1. The contents of recently-edited open buffers
@@ -10,6 +10,7 @@ Some pieces of context that we give to the AI:
 This makes the AI much more useful for day-to-day programming tasks
 than base ChatGPT because you don't have to self-manage context or
 copy and paste to a web interface.
+
 
 ## Installation
 
@@ -50,6 +51,36 @@ Plug 'CamdenClark/carrier.nvim'
 
 ## Usage
 
+### Sending a message
+
+Usage of carrier is extremely simple: call `:CarrierSendMessage`.
+
+If called when the `carrier log` buffer is not open, you will be prompted for a message. 
+Then, `carrier log` buffer will open with your user message in it formatted like so:
+
+```markdown
+# User
+How do I do binary search in Lua?
+
+# Assistant
+...
+```
+
+The response will be streamed into the buffer.
+
+
+If you have a `# User` message already specified in the carrier log buffer, `:CarrierSendMessage`
+will immediately send that message to the AI.
+
+If you call `:CarrierSendMessage hello world` it will add `hello world` to the drafted
+user message and send it to the AI.
+
+### Stopping a message
+
+It's easy to stop a message in progress: call `:CarrierStopMessage`.
+
+### Opening the log
+
 `:CarrierOpen` functions opens the carrier chat log. 
 Split opens in a horizontal split, while VSplit opens in a vertical split.
 
@@ -58,14 +89,6 @@ Split opens in a horizontal split, while VSplit opens in a vertical split.
 :CarrierOpenSplit
 :CarrierOpenVSplit
 ```
-
-To send a message in the carrier log buffer:
-
-```vim
-:CarrierSendMessage
-```
-
-The response from the Assistant will be streamed back to the same buffer.
 
 ## Configuration
 

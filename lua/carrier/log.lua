@@ -152,6 +152,9 @@ local function send_message(msg)
     else
         if trim(messages[#messages].content) == "" then
             local content = vim.fn.input("> ")
+            if content == nil or content == "" then
+                return
+            end
             messages[#messages].content = content
             vim.api.nvim_buf_set_lines(buffer, currentLine - 1, currentLine, false, { content })
             currentLine = currentLine + 1

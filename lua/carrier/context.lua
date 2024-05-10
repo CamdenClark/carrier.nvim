@@ -25,10 +25,17 @@ local function get_buffers_content_summary()
     table.sort(bufinfo, function(a, b)
         return a.lastused > b.lastused
     end)
+    local current_buf = vim.api.nvim_get_current_buf()
+    local cursor_pos = vim.api.nvim_win_get_cursor(0)
+    local row = cursor_pos[1]
 
     for _, buf in ipairs(bufinfo) do
         if buf.name and buf.name ~= "carrier log" and vim.api.nvim_buf_is_loaded(buf.bufnr) then
             local lines = vim.api.nvim_buf_get_lines(buf.bufnr, 0, -1, false)
+            if buf.bufnr == current_buf then
+                local cursor_line = lines[row] or ""
+                lines[row] = cursor_line .. " [cursor]"
+            end
             local content = table.concat(lines, "\n")
             local content_length = #content
 

@@ -2,6 +2,8 @@ local openai = require("carrier.openai")
 local config = require("carrier.config")
 local context = require("carrier.context")
 
+local current_edit = nil
+
 local function get_selection()
     local start_pos = vim.fn.getpos("'<")
     local end_pos = vim.fn.getpos("'>")
@@ -46,33 +48,151 @@ local function replace_selection(new_text)
     vim.api.nvim_buf_set_lines(buffer, start_line - 1, end_line, false, new_lines)
 end
 
-local edit_instruction = [[Act as an expert software developer.
-Always use best practices when coding.
-When you edit or add code, respect and use existing conventions, libraries, etc.
-Return an edit of the code given a user's instruction. Only return the edited code, don't use markdown backticks,
-and don't provide any commentary.
+local add_instruction = [[
+Act as an expert software developer.
+Respect the user's existing conventions.
+
+You will see a few files that the user has recently edited.
+The user's current cursor position will be shown with [cursor].
+
+You should write some code that fits the user's instruction and cursor position.
+Only output the updated code snippet.
 ]]
 
-local function edit_selection()
-    local edit_prompt = vim.fn.input("Enter an edit instruction...")
-    local selection = get_selection()
+local edit_instruction = [[
+Act as an expert software developer.
+Respect the user's existing conventions.
+
+You will see a few files that the user has recently edited.
+You will also get a code snippet from one of those files that the user wants to edit.
+
+You should edit that code snippet given the user's instruction. Only ouptut the updated code snippet.
+]]
+
+local namespace_name = "carrier_diff"
+local namespace = vim.api.nvim_create_namespace(namespace_name)
+
+local function clear_virtual_lines()
+    local buf = vim.api.nvim_get_current_buf()
+    vim.api.nvim_buf_clear_namespace(buf, namespace, 0, -1)
+end
+
+local function diff_lines(lines1, lines2)
+    local set1 = {}
+    local result = {}
+
+    -- Build a table to store the lines from the first set
+    for _, line in ipairs(lines1) do
+        set1[line] = true
+    end
+
+    local i, j = 1, 1
+    while i <= #lines1 or j <= #lines2 do
+        if lines1[i] == lines2[j] then
+            -- Lines are the same, no change
+            table.insert(result, { { lines1[i], "normal" } })
+            i = i + 1
+            j = j + 1
+        elseif set1[lines2[j]] then
+            -- Line is present in lines1 but at a different position
+            table.insert(result, { { lines1[i], "diffRemoved" } })
+            i = i + 1
+        else
+            -- Line is new in lines2
+            table.insert(result, { { lines2[j], "diffAdded" } })
+            j = j + 1
+        end
+    end
+
+    return result
+end
+
+local function render_edit(buf, row, lines1, lines2)
+    local virt_lines = diff_lines(lines1, lines2)
+
+    -- Add each line of text as a virtual line below the cursor
+    vim.api.nvim_buf_set_extmark(buf, namespace, row, 0, {
+        virt_lines = virt_lines,
+    })
+end
+
+local function suggest_edit()
+    local buf = vim.api.nvim_get_current_buf()
+    local cursor_pos = vim.api.nvim_win_get_cursor(0)
+    local row = cursor_pos[1]
+
+    current_edit = {
+        buf = buf,
+        row = row,
+    }
+
+    -- get edit
+    local edit_prompt = vim.fn.input("Edit: ")
     local messages = {
         {
             role = "system",
-            content = edit_instruction
+            content = add_instruction
                 .. "User's recently edited buffers:\n"
-                .. context.get_recent_buffers_text()
+                .. context.get_buffers_content_summary()
                 .. "\n",
         },
         {
             role = "user",
-            content = selection .. "\n\n" .. "" .. "User's edit instruction: " .. edit_prompt,
+            content = "User's edit instruction: " .. edit_prompt,
         },
     }
-    local replacement = openai.get_chatgpt_completion(config.options, messages)
-    replace_selection(replacement)
+
+    local lines = { "" }
+
+    local on_delta = function(response)
+        if
+            response
+            and response.choices
+            and response.choices[1]
+            and response.choices[1].delta
+            and response.choices[1].delta.content
+        then
+            local delta = response.choices[1].delta.content
+            for char in delta:gmatch(".") do
+                if char == "\n" then
+                    lines = vim.list_extend(lines, { "" })
+                    clear_virtual_lines()
+                    render_edit(buf, row, {}, lines)
+                else
+                    lines[#lines] = lines[#lines] .. char
+                end
+            end
+        end
+    end
+
+    local on_complete = function()
+        current_edit.lines = lines
+    end
+
+    openai.stream_chatgpt_completion(config.options, messages, on_delta, on_complete)
 end
 
+local function accept_edit()
+    if current_edit then
+        local buf = current_edit.buf
+        local row = current_edit.row
+        local lines = current_edit.lines
+        vim.api.nvim_buf_set_lines(buf, row, row, false, lines)
+        clear_virtual_lines()
+    end
+end
+
+local function reject_edit()
+    if current_edit then
+        clear_virtual_lines() -- Clear any virtual lines showing the suggested edit
+        current_edit = nil -- Clear the current edit data
+    end
+end
+
+-- suggest_edit()
+-- accept_edit()
 return {
-    edit_selection = edit_selection,
+    reject_edit = reject_edit,
+    accept_edit = accept_edit,
+    suggest_edit = suggest_edit,
 }

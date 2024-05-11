@@ -111,7 +111,7 @@ local function render_edit(buf, row, lines1, lines2)
     local virt_lines = diff_lines(lines1, lines2)
 
     -- Add each line of text as a virtual line below the cursor
-    vim.api.nvim_buf_set_extmark(buf, namespace, row, 0, {
+    return vim.api.nvim_buf_set_extmark(buf, namespace, row, 0, {
         virt_lines = virt_lines,
     })
 end
@@ -120,11 +120,6 @@ local function suggest_edit()
     local buf = vim.api.nvim_get_current_buf()
     local cursor_pos = vim.api.nvim_win_get_cursor(0)
     local row = cursor_pos[1]
-
-    current_edit = {
-        buf = buf,
-        row = row,
-    }
 
     -- get edit
     local edit_prompt = vim.fn.input("Edit: ")
@@ -143,6 +138,7 @@ local function suggest_edit()
     }
 
     local lines = { "" }
+    local ext_mark = nil
 
     local on_delta = function(response)
         if
@@ -151,13 +147,15 @@ local function suggest_edit()
             and response.choices[1]
             and response.choices[1].delta
             and response.choices[1].delta.content
+            and current_edit
+            and not current_edit.job.is_shutdown
         then
             local delta = response.choices[1].delta.content
             for char in delta:gmatch(".") do
                 if char == "\n" then
                     lines = vim.list_extend(lines, { "" })
                     clear_virtual_lines()
-                    render_edit(buf, row, {}, lines)
+                    ext_mark = render_edit(buf, row - 1, {}, lines)
                 else
                     lines[#lines] = lines[#lines] .. char
                 end
@@ -166,16 +164,27 @@ local function suggest_edit()
     end
 
     local on_complete = function()
-        current_edit.lines = lines
+        current_edit = {
+            buf = buf,
+            lines = lines,
+            ext_mark = ext_mark,
+        }
     end
 
-    openai.stream_chatgpt_completion(config.options, messages, on_delta, on_complete)
+    current_edit = {
+        buf = buf,
+    }
+
+    current_edit.job = openai.stream_chatgpt_completion(config.options, messages, on_delta, on_complete)
 end
 
 local function accept_edit()
     if current_edit then
         local buf = current_edit.buf
-        local row = current_edit.row
+        local ext_mark = current_edit.ext_mark
+
+        local pos = vim.api.nvim_buf_get_extmark_by_id(buf, namespace, ext_mark, { details = true })
+        local row = unpack(pos)
         local lines = current_edit.lines
         vim.api.nvim_buf_set_lines(buf, row, row, false, lines)
         clear_virtual_lines()
@@ -189,10 +198,14 @@ local function reject_edit()
     end
 end
 
--- suggest_edit()
--- accept_edit()
+local function cancel_edit()
+    -- I tried to shutdown the curl job here but it caused a bunch of errors to throw.
+    reject_edit()
+end
+
 return {
     reject_edit = reject_edit,
     accept_edit = accept_edit,
     suggest_edit = suggest_edit,
+    cancel_edit = cancel_edit,
 }

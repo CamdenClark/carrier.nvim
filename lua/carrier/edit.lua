@@ -21,17 +21,11 @@ local function get_selection()
     lines[#lines] = lines[#lines]:sub(1, end_col - 1)
 
     -- Join the lines into a single string
-    return table.concat(lines, "\n")
+    return start_line, start_col, end_line, end_col, table.concat(lines, "\n")
 end
 
-local function replace_selection(new_text)
-    -- Get positions just like in your function
-    local start_pos = vim.fn.getpos("'<")
-    local end_pos = vim.fn.getpos("'>")
-    local start_line, start_col = start_pos[2], start_pos[3]
-    local end_line, end_col = end_pos[2], end_pos[3]
-    local buffer = vim.api.nvim_get_current_buf()
-    -- Split the new text into separate lines
+-- Get positions just like in your function
+local function replace_selection(buffer, start_line, start_col, end_line, end_col, new_text)
     local new_lines = {}
     for line in new_text:gmatch("([^\n]*)\n?") do
         table.insert(new_lines, line)
@@ -56,7 +50,7 @@ You will see a few files that the user has recently edited.
 The user's current cursor position will be shown with [cursor].
 
 You should write some code that fits the user's instruction and cursor position.
-Only output the updated code snippet.
+Only output the updated code snippet. Do NOT output backticks or code block markdown formatting.
 ]]
 
 local edit_instruction = [[
@@ -67,9 +61,10 @@ You will see a few files that the user has recently edited.
 You will also get a code snippet from one of those files that the user wants to edit.
 
 You should edit that code snippet given the user's instruction. Only ouptut the updated code snippet.
+Do NOT output backticks or code block markdown formatting.
 ]]
 
-local namespace_name = "carrier_diff"
+local namespace_name = "carrier_edit"
 local namespace = vim.api.nvim_create_namespace(namespace_name)
 
 local function clear_virtual_lines()
@@ -77,30 +72,27 @@ local function clear_virtual_lines()
     vim.api.nvim_buf_clear_namespace(buf, namespace, 0, -1)
 end
 
-local function diff_lines(lines1, lines2)
-    local set1 = {}
+local function diff_lines(arr1, arr2)
     local result = {}
-
-    -- Build a table to store the lines from the first set
-    for _, line in ipairs(lines1) do
-        set1[line] = true
-    end
-
     local i, j = 1, 1
-    while i <= #lines1 or j <= #lines2 do
-        if lines1[i] == lines2[j] then
-            -- Lines are the same, no change
-            table.insert(result, { { lines1[i], "normal" } })
-            i = i + 1
+
+    while i <= #arr1 or j <= #arr2 do
+        if i > #arr1 then
+            table.insert(result, { { arr2[j], "diffAdded" } })
             j = j + 1
-        elseif set1[lines2[j]] then
-            -- Line is present in lines1 but at a different position
-            table.insert(result, { { lines1[i], "diffRemoved" } })
+        elseif j > #arr2 then
+            table.insert(result, { { arr1[i], "diffRemoved" } })
             i = i + 1
+        elseif arr1[i] == arr2[j] then
+            table.insert(result, { { arr1[i], "normal" } })
+            i, j = i + 1, j + 1
         else
-            -- Line is new in lines2
-            table.insert(result, { { lines2[j], "diffAdded" } })
-            j = j + 1
+            table.insert(result, { { arr1[i], "diffRemoved" } })
+            i = i + 1
+            if j <= #arr2 then
+                table.insert(result, { { arr2[j], "diffAdded" } })
+                j = j + 1
+            end
         end
     end
 
@@ -117,6 +109,81 @@ local function render_edit(buf, row, lines1, lines2)
 end
 
 local function suggest_edit()
+    local buf = vim.api.nvim_get_current_buf()
+
+    local start_line, start_col, end_line, end_col, selection = get_selection()
+
+    local selection_lines = vim.split(selection, "\n")
+
+    -- get edit
+    local edit_prompt = vim.fn.input("Edit: ")
+    local messages = {
+        {
+            role = "system",
+            content = edit_instruction
+                .. "User's recently edited buffers:\n"
+                .. context.get_buffers_content_summary()
+                .. "\n",
+        },
+        {
+            role = "user",
+            content = "Snippet to edit:\n" .. selection .. "\n\n" .. "User's edit instruction: " .. edit_prompt,
+        },
+    }
+
+    local lines = { "" }
+    local ext_mark = nil
+
+    local on_delta = function(response)
+        if
+            response
+            and response.choices
+            and response.choices[1]
+            and response.choices[1].delta
+            and response.choices[1].delta.content
+            and current_edit
+            and not current_edit.job.is_shutdown
+        then
+            local delta = response.choices[1].delta.content
+            for char in delta:gmatch(".") do
+                if char == "\n" then
+                    lines = vim.list_extend(lines, { "" })
+                    clear_virtual_lines()
+                    ext_mark = render_edit(buf, end_line - 1, selection_lines, lines)
+                else
+                    lines[#lines] = lines[#lines] .. char
+                end
+            end
+        end
+    end
+
+    local on_complete = function()
+        clear_virtual_lines()
+        ext_mark = render_edit(buf, end_line - 1, selection_lines, lines)
+        current_edit = {
+            job = current_edit and current_edit.job,
+            buf = buf,
+            lines = lines,
+            ext_mark = ext_mark,
+            start_col = start_col,
+            start_line = start_line,
+            end_col = end_col,
+            end_line = end_line,
+        }
+    end
+
+    current_edit = {
+        buf = buf,
+        start_col = start_col,
+        start_line = start_line,
+        end_col = end_col,
+        end_line = end_line,
+    }
+
+    current_edit.job = openai.stream_chatgpt_completion(config.options, messages, on_delta, on_complete)
+end
+
+local function suggest_addition()
     local buf = vim.api.nvim_get_current_buf()
     local cursor_pos = vim.api.nvim_win_get_cursor(0)
     local row = cursor_pos[1]
@@ -164,6 +231,8 @@ local function suggest_edit()
     end
 
     local on_complete = function()
+        clear_virtual_lines()
+        ext_mark = render_edit(buf, row - 1, {}, lines)
         current_edit = {
             buf = buf,
             lines = lines,
@@ -178,34 +247,47 @@ local function suggest_edit()
     current_edit.job = openai.stream_chatgpt_completion(config.options, messages, on_delta, on_complete)
 end
 
-local function accept_edit()
+local function accept()
     if current_edit then
         local buf = current_edit.buf
         local ext_mark = current_edit.ext_mark
 
-        local pos = vim.api.nvim_buf_get_extmark_by_id(buf, namespace, ext_mark, { details = true })
-        local row = unpack(pos)
-        local lines = current_edit.lines
-        vim.api.nvim_buf_set_lines(buf, row, row, false, lines)
+        if current_edit.start_col then
+            replace_selection(
+                buf,
+                current_edit.start_line,
+                current_edit.start_col,
+                current_edit.end_line,
+                current_edit.end_col,
+                table.concat(current_edit.lines, "\n")
+            )
+        else
+            local pos = vim.api.nvim_buf_get_extmark_by_id(buf, namespace, ext_mark, { details = true })
+            local row = unpack(pos)
+            local lines = current_edit.lines
+            vim.api.nvim_buf_set_lines(buf, row, row, false, lines)
+        end
         clear_virtual_lines()
+        current_edit = nil
     end
 end
 
-local function reject_edit()
+local function reject()
     if current_edit then
         clear_virtual_lines() -- Clear any virtual lines showing the suggested edit
         current_edit = nil -- Clear the current edit data
     end
 end
 
-local function cancel_edit()
+local function cancel()
     -- I tried to shutdown the curl job here but it caused a bunch of errors to throw.
-    reject_edit()
+    reject()
 end
 
 return {
-    reject_edit = reject_edit,
-    accept_edit = accept_edit,
+    reject = reject,
+    accept = accept,
+    suggest_addition = suggest_addition,
     suggest_edit = suggest_edit,
-    cancel_edit = cancel_edit,
+    cancel = cancel,
 }

@@ -43,34 +43,11 @@ local function replace_selection(buffer, start_line, start_col, end_line, end_co
     vim.api.nvim_buf_set_lines(buffer, start_line - 1, end_line, false, new_lines)
 end
 
-local add_instruction = [[
-Act as an expert software developer.
-Respect the user's existing conventions.
-
-You will see a few files that the user has recently edited.
-The user's current cursor position will be shown with [cursor].
-
-You should write some code that fits the user's instruction and cursor position.
-Only output the updated code snippet. Do NOT output backticks or code block markdown formatting.
-]]
-
-local edit_instruction = [[
-Act as an expert software developer.
-Respect the user's existing conventions.
-
-You will see a few files that the user has recently edited.
-You will also get a code snippet from one of those files that the user wants to edit.
-
-You should edit that code snippet given the user's instruction. Only ouptut the updated code snippet.
-Do NOT output backticks or code block markdown formatting.
-]]
-
-local namespace_name = "carrier_edit"
-local namespace = vim.api.nvim_create_namespace(namespace_name)
-
-local function clear_virtual_lines()
-    local buf = vim.api.nvim_get_current_buf()
-    vim.api.nvim_buf_clear_namespace(buf, namespace, 0, -1)
+local function clear_diff_buf()
+    local diff_buf = current_edit and current_edit.diff_buf
+    if diff_buf then
+        vim.api.nvim_buf_delete(diff_buf, { force = true })
+    end
 end
 
 local function diff_lines(arr1, arr2)
@@ -100,13 +77,49 @@ local function diff_lines(arr1, arr2)
     return result
 end
 
-local function render_edit(buf, row, lines1, lines2)
+local function create_diff_buf()
+    local diff_buf = vim.api.nvim_create_buf(true, true)
+    vim.api.nvim_buf_set_option(diff_buf, "buftype", "nofile")
+    vim.api.nvim_buf_set_option(diff_buf, "modifiable", true)
+    -- Open the new buffer in a split window
+    vim.cmd("split")
+    vim.api.nvim_win_set_buf(0, diff_buf)
+
+    -- Map 'q' to reject function
+    vim.api.nvim_buf_set_keymap(
+        diff_buf,
+        "n",
+        "q",
+        ":lua require'carrier.edit'.reject()<CR>",
+        { noremap = true, silent = true }
+    )
+
+    return diff_buf
+end
+
+local function render_edit(buf, lines1, lines2)
     local virt_lines = diff_lines(lines1, lines2)
 
-    -- Add each line of text as a virtual line below the cursor
-    return vim.api.nvim_buf_set_extmark(buf, namespace, row, 0, {
-        virt_lines = virt_lines,
-    })
+    -- Convert virt_lines to buffer lines
+    local lines_of_diff = {}
+    for _, virt_line in ipairs(virt_lines) do
+        local line, hl_group = unpack(virt_line[1])
+        table.insert(lines_of_diff, { line, hl_group })
+    end
+
+    -- Set the lines in the new buffer with highlights
+    vim.api.nvim_buf_set_lines(
+        buf,
+        0,
+        -1,
+        false,
+        vim.tbl_map(function(item)
+            return item[1]
+        end, lines_of_diff)
+    )
+    for i, item in ipairs(lines_of_diff) do
+        vim.api.nvim_buf_add_highlight(buf, -1, item[2], i - 1, 0, -1)
+    end
 end
 
 local function suggest_edit()
@@ -118,39 +131,18 @@ local function suggest_edit()
 
     -- get edit
     local edit_prompt = vim.fn.input("Edit: ")
-    local messages = {
-        {
-            role = "system",
-            content = edit_instruction
-                .. "User's recently edited buffers:\n"
-                .. context.get_buffers_content_summary()
-                .. "\n",
-        },
-        {
-            role = "user",
-            content = "Snippet to edit:\n" .. selection .. "\n\n" .. "User's edit instruction: " .. edit_prompt,
-        },
-    }
 
     local lines = { "" }
-    local ext_mark = nil
+
+    -- Open a new buffer to render the diff
+    local diff_buf = create_diff_buf()
 
     local on_delta = function(response)
-        if
-            response
-            and response.choices
-            and response.choices[1]
-            and response.choices[1].delta
-            and response.choices[1].delta.content
-            and current_edit
-            and not current_edit.job.is_shutdown
-        then
-            local delta = response.choices[1].delta.content
-            for char in delta:gmatch(".") do
+        if current_edit and not current_edit.job.is_shutdown then
+            for char in response:gmatch(".") do
                 if char == "\n" then
                     lines = vim.list_extend(lines, { "" })
-                    clear_virtual_lines()
-                    ext_mark = render_edit(buf, end_line - 1, selection_lines, lines)
+                    render_edit(diff_buf, selection_lines, lines)
                 else
                     lines[#lines] = lines[#lines] .. char
                 end
@@ -159,13 +151,12 @@ local function suggest_edit()
     end
 
     local on_complete = function()
-        clear_virtual_lines()
-        ext_mark = render_edit(buf, end_line - 1, selection_lines, lines)
+        render_edit(diff_buf, selection_lines, lines)
         current_edit = {
             job = current_edit and current_edit.job,
             buf = buf,
+            diff_buf = diff_buf,
             lines = lines,
-            ext_mark = ext_mark,
             start_col = start_col,
             start_line = start_line,
             end_col = end_col,
@@ -175,16 +166,19 @@ local function suggest_edit()
 
     current_edit = {
         buf = buf,
+        diff_buf = diff_buf,
         start_col = start_col,
         start_line = start_line,
         end_col = end_col,
         end_line = end_line,
     }
 
-    current_edit.job = openai.stream_chatgpt_completion(config.options, messages, on_delta, on_complete)
+    current_edit.job = deepseek.stream_edit_completion(config.options, {
+        selection = selection,
+        edit_instruction = edit_prompt,
+        buffer_content = context.get_buffers_content_summary(),
+    }, on_delta, on_complete)
 end
-
--- add binary search in lua
 
 local function suggest_addition()
     local buf = vim.api.nvim_get_current_buf()
@@ -206,23 +200,15 @@ local function suggest_addition()
     local suffix = string.sub(content, byte_index + 1)
 
     local lines = { "" }
-    local ext_mark = nil
+
+    local diff_buf = create_diff_buf()
 
     local on_delta = function(response)
-        if
-            response
-            and response.choices
-            and response.choices[1]
-            and response.choices[1].text
-            and current_edit
-            and not current_edit.job.is_shutdown
-        then
-            local delta = response.choices[1].text
-            for char in delta:gmatch(".") do
+        if response and current_edit and not current_edit.job.is_shutdown then
+            for char in response:gmatch(".") do
                 if char == "\n" then
                     lines = vim.list_extend(lines, { "" })
-                    clear_virtual_lines()
-                    ext_mark = render_edit(buf, row - 1, {}, lines)
+                    render_edit(diff_buf, {}, lines)
                 else
                     lines[#lines] = lines[#lines] .. char
                 end
@@ -231,17 +217,25 @@ local function suggest_addition()
     end
 
     local on_complete = function()
-        clear_virtual_lines()
-        ext_mark = render_edit(buf, row - 1, {}, lines)
+        render_edit(diff_buf, {}, lines)
         current_edit = {
             buf = buf,
+            diff_buf = diff_buf,
             lines = lines,
-            ext_mark = ext_mark,
+            start_col = col,
+            start_line = row,
+            end_col = col,
+            end_line = row,
         }
     end
 
     current_edit = {
         buf = buf,
+        diff_buf = diff_buf,
+        start_col = col,
+        start_line = row,
+        end_col = col,
+        end_line = row,
     }
 
     -- Call the modified deepseek.stream_fim_completion function
@@ -251,31 +245,23 @@ end
 local function accept()
     if current_edit then
         local buf = current_edit.buf
-        local ext_mark = current_edit.ext_mark
 
-        if current_edit.start_col then
-            replace_selection(
-                buf,
-                current_edit.start_line,
-                current_edit.start_col,
-                current_edit.end_line,
-                current_edit.end_col,
-                table.concat(current_edit.lines, "\n")
-            )
-        else
-            local pos = vim.api.nvim_buf_get_extmark_by_id(buf, namespace, ext_mark, { details = true })
-            local row = unpack(pos)
-            local lines = current_edit.lines
-            vim.api.nvim_buf_set_lines(buf, row, row, false, lines)
-        end
-        clear_virtual_lines()
+        replace_selection(
+            buf,
+            current_edit.start_line,
+            current_edit.start_col,
+            current_edit.end_line,
+            current_edit.end_col,
+            table.concat(current_edit.lines, "\n")
+        )
+        clear_diff_buf()
         current_edit = nil
     end
 end
 
 local function reject()
     if current_edit then
-        clear_virtual_lines() -- Clear any virtual lines showing the suggested edit
+        clear_diff_buf() -- Clear any virtual lines showing the suggested edit
         current_edit = nil -- Clear the current edit data
     end
 end

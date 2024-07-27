@@ -1,4 +1,5 @@
 local openai = require("carrier.openai")
+local deepseek = require("carrier.deepseek")
 local config = require("carrier.config")
 local context = require("carrier.context")
 
@@ -183,26 +184,26 @@ local function suggest_edit()
     current_edit.job = openai.stream_chatgpt_completion(config.options, messages, on_delta, on_complete)
 end
 
+-- add binary search in lua
+
 local function suggest_addition()
     local buf = vim.api.nvim_get_current_buf()
     local cursor_pos = vim.api.nvim_win_get_cursor(0)
-    local row = cursor_pos[1]
+    local row, col = cursor_pos[1], cursor_pos[2]
 
-    -- get edit
-    local edit_prompt = vim.fn.input("Edit: ")
-    local messages = {
-        {
-            role = "system",
-            content = add_instruction
-                .. "User's recently edited buffers:\n"
-                .. context.get_buffers_content_summary()
-                .. "\n",
-        },
-        {
-            role = "user",
-            content = "User's edit instruction: " .. edit_prompt,
-        },
-    }
+    -- Get buffer content
+    local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+    local content = table.concat(lines, "\n")
+    -- Calculate the correct byte index for splitting
+    local byte_index = 0
+    for i = 1, row - 1 do
+        byte_index = byte_index + #lines[i] + 1 -- +1 for newline
+    end
+    byte_index = byte_index + col
+
+    -- Split content into prompt and suffix
+    local prompt = string.sub(content, 1, byte_index)
+    local suffix = string.sub(content, byte_index + 1)
 
     local lines = { "" }
     local ext_mark = nil
@@ -212,12 +213,11 @@ local function suggest_addition()
             response
             and response.choices
             and response.choices[1]
-            and response.choices[1].delta
-            and response.choices[1].delta.content
+            and response.choices[1].text
             and current_edit
             and not current_edit.job.is_shutdown
         then
-            local delta = response.choices[1].delta.content
+            local delta = response.choices[1].text
             for char in delta:gmatch(".") do
                 if char == "\n" then
                     lines = vim.list_extend(lines, { "" })
@@ -244,7 +244,8 @@ local function suggest_addition()
         buf = buf,
     }
 
-    current_edit.job = openai.stream_chatgpt_completion(config.options, messages, on_delta, on_complete)
+    -- Call the modified deepseek.stream_fim_completion function
+    current_edit.job = deepseek.stream_fim_completion(config.options, prompt, suffix, on_delta, on_complete)
 end
 
 local function accept()

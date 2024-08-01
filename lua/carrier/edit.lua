@@ -1,4 +1,5 @@
 local openai = require("carrier.openai")
+-- local claude = require("carrier.claude")
 local deepseek = require("carrier.deepseek")
 local config = require("carrier.config")
 local context = require("carrier.context")

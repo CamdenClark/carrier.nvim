@@ -25,7 +25,6 @@ local function get_selection()
     return start_line, start_col, end_line, end_col, table.concat(lines, "\n")
 end
 
--- Get positions just like in your function
 local function replace_selection(buffer, start_line, start_col, end_line, end_col, new_text)
     local new_lines = {}
     for line in new_text:gmatch("([^\n]*)\n?") do
@@ -34,13 +33,23 @@ local function replace_selection(buffer, start_line, start_col, end_line, end_co
     -- Replace the first and last lines to leave the unselected text unchanged
     local old_lines = vim.api.nvim_buf_get_lines(buffer, start_line - 1, end_line, false)
     if start_col > 1 then
-        new_lines[1] = old_lines[1]:sub(1, start_col - 1) .. new_lines[1]
+        new_lines[1] = old_lines[1]:sub(1, start_col) .. new_lines[1]
     end
     if end_col <= #old_lines[#old_lines] then
         new_lines[#new_lines] = new_lines[#new_lines] .. old_lines[#old_lines]:sub(end_col)
     end
     -- Set the new lines in the buffer
     vim.api.nvim_buf_set_lines(buffer, start_line - 1, end_line, false, new_lines)
+end
+
+local function accept_suggestion(buffer, col, line, suggestion)
+    local new_lines = vim.split(suggestion, "\n")
+    local old_lines = vim.api.nvim_buf_get_lines(buffer, line - 1, line, false)
+    local old_line = old_lines[1]
+    if col > 1 then
+        new_lines[1] = old_line:sub(1, col) .. new_lines[1]
+    end
+    vim.api.nvim_buf_set_lines(buffer, line - 1, line, false, new_lines)
 end
 
 local function clear_diff_buf()
@@ -224,8 +233,6 @@ local function suggest_addition()
             lines = lines,
             start_col = col,
             start_line = row,
-            end_col = col,
-            end_line = row,
         }
     end
 
@@ -234,8 +241,6 @@ local function suggest_addition()
         diff_buf = diff_buf,
         start_col = col,
         start_line = row,
-        end_col = col,
-        end_line = row,
     }
 
     -- Call the modified deepseek.stream_fim_completion function
@@ -245,15 +250,23 @@ end
 local function accept()
     if current_edit then
         local buf = current_edit.buf
-
-        replace_selection(
-            buf,
-            current_edit.start_line,
-            current_edit.start_col,
-            current_edit.end_line,
-            current_edit.end_col,
-            table.concat(current_edit.lines, "\n")
-        )
+        if current_edit.end_col then
+            replace_selection(
+                buf,
+                current_edit.start_line,
+                current_edit.start_col,
+                current_edit.end_line,
+                current_edit.end_col,
+                table.concat(current_edit.lines, "\n")
+            )
+        else
+            accept_suggestion(
+                buf,
+                current_edit.start_col,
+                current_edit.start_line,
+                table.concat(current_edit.lines, "\n")
+            )
+        end
         clear_diff_buf()
         current_edit = nil
     end

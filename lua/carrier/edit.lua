@@ -1,10 +1,23 @@
 local openai = require("carrier.openai")
--- local claude = require("carrier.claude")
-local deepseek = require("carrier.azure")
+local claude = require("carrier.claude")
+local azure = require("carrier.azure")
+local deepseek = require("carrier.deepseek")
 local config = require("carrier.config")
 local context = require("carrier.context")
 
 local current_edit = nil
+
+local get_provider = function(options)
+    if options.provider == "openai" then
+        return openai
+    elseif options.provider == "claude" then
+        return claude
+    elseif options.provider == "azure" then
+        return azure
+    elseif options.provider == "deepseek" then
+        return deepseek
+    end
+end
 
 local function get_selection()
     local start_pos = vim.fn.getpos("'<")
@@ -183,7 +196,9 @@ local function suggest_edit()
         end_line = end_line,
     }
 
-    current_edit.job = deepseek.stream_edit_completion(config.options, {
+    local provider = get_provider(config.options)
+
+    current_edit.job = provider.stream_edit_completion(config.options, {
         selection = selection,
         edit_instruction = edit_prompt,
         buffer_content = context.get_buffers_content_summary(),
@@ -244,8 +259,9 @@ local function suggest_addition()
         start_line = row,
     }
 
+    local provider = get_provider(config.options)
     -- Call the modified deepseek.stream_fim_completion function
-    current_edit.job = deepseek.stream_fim_completion(config.options, prompt, suffix, on_delta, on_complete)
+    current_edit.job = provider.stream_fim_completion(config.options, prompt, suffix, on_delta, on_complete)
 end
 
 local function accept()

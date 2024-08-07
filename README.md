@@ -1,147 +1,148 @@
 # carrier.nvim
 
-carrier.nvim is a ChatGPT plugin for Neovim that allows you to chat
-with ChatGPT automatically provided with the context in your editor.
+carrier.nvim is a Neovim plugin that integrates AI-powered editing suggestions directly into your editor. It supports multiple AI providers and offers enhanced editing capabilities.
 
-Some pieces of context that we give to the AI:
-1. The contents of recently-edited open buffers
-2. The contents of diagnostic information at your cursor
+It's designed to be turnkey: put in your API key, and you're ready to go. carrier.nvim handles the rest.
 
-This makes the AI much more useful for day-to-day programming tasks
-than base ChatGPT because you don't have to self-manage context or
-copy and paste to a web interface.
+## Features
 
+- AI-powered editing suggestions
+- Support for multiple AI providers (OpenAI, Claude, Azure, DeepSeek)
+- In-place editing suggestions with diff view
+- Easy accept/reject mechanism for suggested edits
 
 ## Installation
 
-1. Put your `OPENAI_API_KEY` as an environment variable
+Install carrier.nvim using your preferred package manager. Here's an example using [lazy.nvim](https://github.com/folke/lazy.nvim):
 
-```bash
-export OPENAI_API_KEY=""
-```
-
-2. Have curl installed on your machine
-
-3. Install `plenary.nvim` and `carrier.nvim` using your package manager:
-
-### Plug
-
-```vim
-Plug 'nvim-lua/plenary.nvim'
-Plug 'CamdenClark/carrier.nvim'
-```
-
-### lazy
 ```lua
 {
   "CamdenClark/carrier.nvim",
   dependencies = {
     "nvim-lua/plenary.nvim",
   },
-  keys = {
-    { "<leader>ao", "<cmd>CarrierLogOpen<cr>", desc = "Open Carrier log" },
-    { "<leader>as", "<cmd>CarrierSendMessage<cr>", desc = "Send message" },
-    { "<leader>ak", "<cmd>CarrierStopMessage<cr>", desc = "Stop current message" },
-  },
-  opts = {
-    model = "gpt-4-1106-preview",
-  },
+  config = function()
+    require("carrier").setup({
+      -- Your configuration options here
+    })
+  end,
 }
-```
-
-## Usage
-
-### Sending a message
-
-Usage of carrier is extremely simple: call `:CarrierSendMessage`.
-
-If called when the `carrier log` buffer is not open, you will be prompted for a message. 
-Then, `carrier log` buffer will open with your user message in it formatted like so:
-
-```markdown
-# User
-How do I do binary search in Lua?
-
-# Assistant
-...
-```
-
-The response will be streamed into the buffer.
-
-
-If you have a `# User` message already specified in the carrier log buffer, `:CarrierSendMessage`
-will immediately send that message to the AI.
-
-If you call `:CarrierSendMessage hello world` it will add `hello world` to the drafted
-user message and send it to the AI.
-
-### Stopping a message
-
-It's easy to stop a message in progress: call `:CarrierStopMessage`.
-
-### Opening the log
-
-`:CarrierOpen` functions opens the carrier chat log. 
-Split opens in a horizontal split, while VSplit opens in a vertical split.
-
-```vim
-:CarrierOpen
-:CarrierOpenSplit
-:CarrierOpenVSplit
 ```
 
 ## Configuration
 
-### Alternative models: gpt-3.5-turbo-16k / gpt-4 / gpt-4-32k
-
-If you want to use Carrier with a different model in OpenAI, call setup with the model:
+carrier.nvim has turnkey configuration for multiple AI providers. Configure carrier.nvim in your Neovim configuration:
 
 ```lua
-require('carrier').setup({
-  -- ...
-  model = "gpt-4"
+require("carrier").setup({
+  provider = "deepseek", -- or "openai", "claude", "azure"
+  config = {
+    -- Provider-specific configuration
+  },
 })
 ```
 
-To change on the fly, call `:CarrierSwitchModel gpt-4`
+### OpenAI Configuration
 
-### Alternative endpoints (Azure OpenAI)
-
-Carrier supports configuring the URL and headers with a different endpoint that shares API compatibility (IE: Azure OpenAI)
-with OpenAI, here's a reference implementation:
+To use OpenAI's models:
 
 ```lua
-require('carrier').setup({
-  -- should be like "$AZURE_OPENAI_ENDPOINT/openai/deployments/$AZURE_OPENAI_DEPLOYMENT_NAME/chat/completions?api-version=2023-07-01-preview"
-  url = vim.env.AZURE_OPENAI_GPT4_URL,
-  headers = { 
-    Api_Key = vim.env.AZURE_OPENAI_GPT4_KEY,
-    Content_Type = "application/json"
-  }
+require("carrier").setup({
+  provider = "openai",
+  config = {
+    api_key = vim.env.OPENAI_API_KEY,
+    model = "gpt-4", -- or "gpt-3.5-turbo-16k", "gpt-4-32k", etc.
+  },
 })
 ```
 
-where you put the values for `AZURE_OPENAI_GPT4_URL` and `AZURE_OPENAI_GPT4_KEY` in the environment.
+Make sure to set your `OPENAI_API_KEY` environment variable or provide it directly in the configuration.
 
-If you want to be able to switch URLs based on model, you should make some lua functions in your
-init.lua that are bound to re-call setup with the updated URL and API key.
+### Claude Configuration (Under construction)
 
-### Callback when message finished
-
-Carrier supports configuring a callback function that is called when a response from the assistant finishes streaming.
+For Anthropic's Claude:
 
 ```lua
-require('carrier').setup({
-  on_complete = function() print("foo") end
+require("carrier").setup({
+  provider = "claude",
+  config = {
+    api_key = vim.env.ANTHROPIC_API_KEY,
+  },
 })
 ```
+
+### Azure OpenAI Configuration
+
+To use Azure OpenAI:
+
+```lua
+require("carrier").setup({
+  provider = "azure",
+  config = {
+    api_key = vim.env.AZURE_OPENAI_API_KEY,
+    endpoint = vim.env.AZURE_OPENAI_ENDPOINT,
+    deployment_name = "your-deployment-name",
+  },
+})
+```
+
+### DeepSeek Configuration
+
+For DeepSeek models:
+
+```lua
+require("carrier").setup({
+  provider = "deepseek",
+  config = {
+    api_key = vim.env.DEEPSEEK_API_KEY,
+  },
+})
+```
+
+## Usage
+
+carrier.nvim provides several commands for AI-assisted editing:
+
+1. **Suggest Edit**: 
+   - Visual mode: Select the text you want to edit, then run `:CarrierSuggestEdit`.
+   - You'll be prompted to enter an edit instruction.
+
+2. **Suggest Addition**:
+   - Place your cursor where you want to add text, then run `:CarrierSuggestAddition`.
+
+3. **Accept Suggestion**:
+   - After reviewing the suggested edit in the diff view, run `:CarrierAccept` to apply the changes.
+
+4. **Reject Suggestion**:
+   - If you don't want to apply the suggested changes, run `:CarrierReject`.
+
+5. **Cancel Operation**:
+   - To cancel the current suggestion process, use `:CarrierCancel`.
+
+## Key Mappings
+
+You can set up key mappings for these commands in your Neovim configuration. For example:
+
+```lua
+vim.api.nvim_set_keymap('v', '<leader>ce', ':CarrierSuggestEdit<CR>', { noremap = true, silent = true })
+vim.api.nvim_set_keymap('n', '<leader>ca', ':CarrierSuggestAddition<CR>', { noremap = true, silent = true })
+vim.api.nvim_set_keymap('n', '<leader>cy', ':CarrierAccept<CR>', { noremap = true, silent = true })
+vim.api.nvim_set_keymap('n', '<leader>cn', ':CarrierReject<CR>', { noremap = true, silent = true })
+vim.api.nvim_set_keymap('n', '<leader>cc', ':CarrierCancel<CR>', { noremap = true, silent = true })
+```
+
+## How It Works
+
+1. When you request an edit or addition, carrier.nvim sends your selected text (for edits) or surrounding context (for additions) to the configured AI provider.
+2. The AI generates a suggestion, which is displayed in a new buffer as a diff view.
+3. You can review the changes in the diff view. Lines in green are additions, and lines in red are removals.
+4. Accept the changes to apply them to your original buffer, or reject them to close the diff view without making changes.
 
 ## Development
 
-### Run tests
+### Running Tests
 
-Running tests requires [plenary.nvim][plenary] to be checked out in the parent directory of _this_ repository.
-You can then run:
+Running tests requires [plenary.nvim][plenary] to be checked out in the parent directory of _this_ repository. You can then run:
 
 ```bash
 just test
@@ -153,7 +154,7 @@ or, more verbose:
 nvim --headless --noplugin -u tests/minimal.vim -c "PlenaryBustedDirectory tests/ {minimal_init = 'tests/minimal.vim'}"
 ```
 
-Or if you want to run a single test file:
+To run a single test file:
 
 ```bash
 just test chat_spec.lua
@@ -163,7 +164,16 @@ just test chat_spec.lua
 nvim --headless --noplugin -u tests/minimal.vim -c "PlenaryBustedDirectory tests/path_to_file.lua {minimal_init = 'tests/minimal.vim'}"
 ```
 
-Read the [nvim-lua-guide][nvim-lua-guide] for more information on developing neovim plugins.
+Read the [nvim-lua-guide][nvim-lua-guide] for more information on developing Neovim plugins.
 
-[nvim-lua-guide]: https://github.com/nanotee/nvim-lua-guide
 [plenary]: https://github.com/nvim-lua/plenary.nvim
+[nvim-lua-guide]: https://github.com/nanotee/nvim-lua-guide
+
+## Contributing
+
+Contributions to carrier.nvim are welcome! Please feel free to submit pull requests or create issues on the GitHub repository.
+
+## License
+
+MIT
+

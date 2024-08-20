@@ -142,27 +142,31 @@ vim.api.nvim_set_keymap('n', '<leader>cc', ':CarrierCancel<CR>', { noremap = tru
 
 ### Running Tests
 
-Running tests requires [plenary.nvim][plenary] to be checked out in the parent directory of _this_ repository. You can then run:
+Running tests requires [plenary.nvim][plenary] to be checked out in the parent directory of *this* repository. 
+
+To run all tests:
 
 ```bash
-just test
+make test
 ```
-
 or, more verbose:
 
 ```bash
-nvim --headless --noplugin -u tests/minimal.vim -c "PlenaryBustedDirectory tests/ {minimal_init = 'tests/minimal.vim'}"
+nvim --headless --noplugin -u tests/minimal.vim -c "PlenaryBustedDirectory tests {minimal_init = 'tests/minimal.vim'}"
 ```
 
 To run a single test file:
 
 ```bash
-just test chat_spec.lua
+make test-file FILE=chat_spec.lua
 ```
+or, more verbose:
 
 ```bash
-nvim --headless --noplugin -u tests/minimal.vim -c "PlenaryBustedDirectory tests/path_to_file.lua {minimal_init = 'tests/minimal.vim'}"
+nvim --headless --noplugin -u tests/minimal.vim -c "PlenaryBustedDirectory tests/chat_spec.lua {minimal_init = 'tests/minimal.vim'}"
 ```
+
+Replace `chat_spec.lua` with the path to your specific test file, relative to the `tests/` directory.
 
 Read the [nvim-lua-guide][nvim-lua-guide] for more information on developing Neovim plugins.
 

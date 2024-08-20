@@ -7,8 +7,6 @@ local function get_headers(options)
     }
 end
 
-local function binary_search(arr, target) end
-
 local function get_api_url(options)
     return string.format(
         "https://%s/openai/deployments/%s/chat/completions?api-version=2024-06-01",
@@ -38,6 +36,7 @@ local function stream_fim_completion(options, prompt, suffix, on_delta, on_compl
             model = "gpt-4o",
             messages = messages,
             stream = true,
+            stop = "```",
         }),
         stream = vim.schedule_wrap(function(_, data, _)
             if not data then
